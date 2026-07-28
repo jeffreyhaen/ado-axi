@@ -1,0 +1,57 @@
+{
+  "name": "ado-axi",
+  "version": "0.2.0",
+  "description": "Agent-ergonomic CLI for Azure DevOps — work items, pull requests, and pipelines through token-efficient TOON output. An AXI (Agent eXperience Interface) over the Azure DevOps REST API.",
+  "keywords": [
+    "azure-devops",
+    "ado",
+    "axi",
+    "agent",
+    "cli",
+    "toon",
+    "work-items",
+    "pull-requests",
+    "pipelines"
+  ],
+  "license": "MIT",
+  "author": "Jeffrey Haen",
+  "homepage": "https://github.com/jeffreyhaen/ado-axi",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffreyhaen/ado-axi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jeffreyhaen/ado-axi/issues"
+  },
+  "type": "module",
+  "bin": {
+    "ado-axi": "dist/bin/ado-axi.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "SKILL.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/bin/ado-axi.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@toon-format/toon": "^2.3.0",
+    "axi-sdk-js": "^0.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+*.tsbuildinfo
+
+# Never commit local org/project/auth configuration
+ado-axi.config.json
+ado-axi.config.local.json
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Local pi coding-agent state (unrelated to ado-axi)
+.pi/
