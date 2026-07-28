@@ -33,6 +33,10 @@ Every command accepts these, and they never count as unknown flags:
   configured profile inherits that profile's authentication
 - `$ADO_AXI_ORG` / `$ADO_AXI_PROJECT` — environment overrides
 
+When the user pastes a `https://dev.azure.com/<org>/<project>/_git/<repo>/pullrequest/<id>` URL, read the
+org, project, and repo out of it and pass them explicitly — the default profile is probably a
+different org. A `TF200016: project does not exist` error almost always means a missing `--org`.
+
 ## Work items
 
 ```sh
@@ -55,7 +59,8 @@ ado-axi work-item comment <id> --body "..."
 ```sh
 ado-axi pr list [--repo <repo>] [--status active|completed|abandoned|all] [--creator @me]
                 [--reviewer @me] [--target <branch>] [--limit 30]
-ado-axi pr get <id> [--threads] [--full]
+ado-axi pr get <id> [--threads] [--full]   # --full = complete description AND comment text
+ado-axi pr comments <id> [--full]          # alias for `pr get <id> --threads`
 ado-axi pr create --repo <repo> --source <branch> [--target main] --title "..." [--description "..."]
                   [--reviewers a,b] [--draft] [--work-items 1,2]
 ado-axi pr approve <id> [--vote approve|approve-with-suggestions|wait-for-author|reject|reset]

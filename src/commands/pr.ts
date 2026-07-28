@@ -6,7 +6,7 @@ import { profileFromArgs } from "../lib/context.js";
 import { countLine, htmlToText, personName, pickFields, shortDate, truncate } from "../lib/format.js";
 
 const LIST_FLAGS = ["repo", "status", "creator", "reviewer", "target", "source", "limit"];
-const GET_FLAGS = ["repo", "threads", "commits"];
+const GET_FLAGS = ["repo", "threads", "commits", "id"];
 const CREATE_FLAGS = ["repo", "source", "target", "title", "description", "reviewers", "draft", "auto-complete", "work-items"];
 const APPROVE_FLAGS = ["repo", "vote"];
 const COMMENT_FLAGS = ["repo", "body", "thread", "file", "line"];
@@ -54,6 +54,9 @@ export async function prCommand(argv: string[]): Promise<Record<string, unknown>
     case "get":
     case "view":
       return getPr(rest);
+    case "comments":
+    case "threads":
+      return getPr({ ...rest, flags: { ...rest.flags, threads: true } });
     case "create":
       return createPr(rest);
     case "approve":
@@ -63,7 +66,8 @@ export async function prCommand(argv: string[]): Promise<Record<string, unknown>
       return commentPr(rest);
     default:
       throw new AxiError(`unknown subcommand \`pr ${sub}\``, "VALIDATION_ERROR", [
-        "Subcommands: list | get | create | approve | comment",
+        "Subcommands: list | get | comments | create | approve | comment",
+        "`pr comments <id>` is an alias for `pr get <id> --threads`",
         "Run `ado-axi pr --help` for the full reference",
       ]);
   }
@@ -216,7 +220,9 @@ async function getPr(args: ReturnType<typeof parseArgs>): Promise<Record<string,
     })),
   };
 
+  const help: string[] = [];
   if (flagBool(args, "threads") && repoName) {
+    const commentLimit = flagBool(args, "full") ? Number.MAX_SAFE_INTEGER : 300;
     const threads = await request<{ value?: Array<{ id: number; status?: string; comments?: Array<{ author?: unknown; content?: string; publishedDate?: string; commentType?: string }>; threadContext?: { filePath?: string } }> }>(
       profile,
       {
@@ -233,13 +239,14 @@ async function getPr(args: ReturnType<typeof parseArgs>): Promise<Record<string,
       file: t.threadContext?.filePath ?? "",
       comments: (t.comments ?? [])
         .filter((c) => c.commentType !== "system")
-        .map((c) => `${personName(c.author)}: ${truncate(htmlToText(c.content ?? ""), 300).text}`)
+        .map((c) => `${personName(c.author)}: ${truncate(htmlToText(c.content ?? ""), commentLimit).text}`)
         .join(" | "),
     }));
     if (visible.length === 0) out.threads = "0 non-system comment threads on this pull request";
+    else if (commentLimit !== Number.MAX_SAFE_INTEGER)
+      help.push(`Run \`ado-axi pr get ${id} --threads --full\` for complete comment text`);
   }
 
-  const help: string[] = [];
   if (body.truncated) help.push(`Run \`ado-axi pr get ${id} --full\` for the complete description`);
   if (!flagBool(args, "threads")) help.push(`Run \`ado-axi pr get ${id} --threads\` to read review comments`);
   if (help.length > 0) out.help = help;
@@ -247,11 +254,11 @@ async function getPr(args: ReturnType<typeof parseArgs>): Promise<Record<string,
 }
 
 function requirePrId(args: ReturnType<typeof parseArgs>): number {
-  const raw = args.positionals[0];
+  const raw = args.positionals[0] ?? flagString(args, "id");
   const id = Number(raw);
   if (!raw || !Number.isFinite(id)) {
     throw new AxiError("a numeric pull request id is required", "VALIDATION_ERROR", [
-      "Usage: ado-axi pr get <id>",
+      "Usage: ado-axi pr get <id>  (or --id <id>)",
       "Run `ado-axi pr list` to find ids",
     ]);
   }

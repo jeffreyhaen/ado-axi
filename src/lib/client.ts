@@ -125,10 +125,15 @@ function translateError(
     ]);
   }
   if (response.status === 404) {
+    const wrongProject = /TF200016|does not exist/i.test(message);
     return new AxiError(`not found: ${path}`, "NOT_FOUND", [
       message,
-      "Check the org, project, id, and repository name",
-      "Run `ado-axi project list` to see available projects",
+      wrongProject
+        ? `Project '${profile.project ?? ""}' was not found in org '${profile.org}' — pass --org <org> or use a profile that points at the right org`
+        : "Check the org, project, id, and repository name",
+      wrongProject
+        ? "Run `ado-axi config list` to see configured orgs and profiles"
+        : "Run `ado-axi project list` to see available projects",
     ]);
   }
   if (response.status === 400) {

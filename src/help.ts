@@ -50,11 +50,12 @@ export const COMMAND_HELP: Record<string, string> = {
     '  ado-axi work-item update 4211 --state "In Progress"',
   ].join("\n"),
   pr: [
-    "ado-axi pr <list|get|create|approve|comment>",
+    "ado-axi pr <list|get|comments|create|approve|comment>",
     "",
     "list    [--repo <repo>] [--status active|completed|abandoned|all] [--creator @me|<name>]",
     "        [--reviewer @me|<name>] [--target <branch>] [--source <branch>] [--limit 30]",
     "get     <id> [--repo <repo>] [--threads] [--full]",
+    "comments <id> [--repo <repo>] [--full]   # alias for `get <id> --threads`",
     'create  --repo <repo> --source <branch> [--target main] --title "..." [--description "..."]',
     "        [--reviewers a,b] [--draft] [--work-items 1,2]",
     "approve <id> [--vote approve|approve-with-suggestions|wait-for-author|reject|reset] [--repo <repo>]",
@@ -62,7 +63,7 @@ export const COMMAND_HELP: Record<string, string> = {
     "",
     "Examples:",
     "  ado-axi pr list --reviewer @me",
-    "  ado-axi pr get 812 --threads",
+    "  ado-axi pr get 812 --threads --full",
     "  ado-axi pr approve 812",
   ].join("\n"),
   pipeline: [

@@ -3,6 +3,18 @@
 All notable changes to ado-axi are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `ado-axi pr comments <id>` (alias `pr threads`) — shorthand for `pr get <id> --threads`
+- `pr get` accepts `--id <n>` in addition to the positional id
+
+### Fixed
+
+- `pr get --threads --full` now prints complete comment text; `--full` previously only applied to the description
+- `TF200016` (project not found) errors now point at a missing `--org` and `ado-axi config list` instead of `project list`
+
 ## [0.2.0] - 2026-07-28
 
 Initial public release.

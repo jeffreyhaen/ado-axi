@@ -72,7 +72,7 @@ ado-axi work-item list --assigned-to @me  # open work items
 ado-axi work-item get 4211 --comments
 ado-axi work-item update 4211 --state "In Progress"
 ado-axi pr list --reviewer @me
-ado-axi pr get 812 --threads
+ado-axi pr comments 812 --full
 ado-axi pr approve 812
 ado-axi pipeline runs --result failed
 ado-axi pipeline logs 98231 --tail 200
