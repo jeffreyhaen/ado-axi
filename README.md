@@ -1,4 +1,4 @@
-# ado-axi
+# ado-axi (Azure DevOps axi)
 
 [![ci](https://github.com/jeffreyhaen/ado-axi/actions/workflows/ci.yml/badge.svg)](https://github.com/jeffreyhaen/ado-axi/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -7,7 +7,7 @@
 Agent-ergonomic CLI for **Azure DevOps** — work items, pull requests, pipelines, and a raw
 REST escape hatch, in token-efficient [TOON](https://toonformat.dev/) output.
 
-`ado-axi` is an [AXI](https://github.com/kunchenguid/axi) (Agent eXperience Interface): a CLI
+`ado-axi` is an Azure DevOps [AXI](https://github.com/kunchenguid/axi) (Agent eXperience Interface): a CLI
 designed for autonomous agents rather than humans. It talks to the Azure DevOps REST API
 directly (no `az` round trips except for token acquisition), supports multiple organizations
 with different authentication through profiles, and answers with minimal schemas plus
