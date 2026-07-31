@@ -14,6 +14,7 @@ All notable changes to ado-axi are documented here. This project follows
 
 - `pr get --threads --full` now prints complete comment text; `--full` previously only applied to the description
 - `TF200016` (project not found) errors now point at a missing `--org` and `ado-axi config list` instead of `project list`
+- `az` (auth) is now spawned via `cross-spawn` instead of a raw `child_process.execFile`. On Windows, `az` is a `.cmd` shim, which Node's shell-less spawn cannot execute (fails with ENOENT); this previously surfaced as spurious "not signed in" / auth failures even when `az` was installed and logged in. Also adds a clearer error message when `az` is genuinely missing from PATH.
 
 ## [0.2.0] - 2026-07-28
 

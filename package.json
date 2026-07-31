@@ -46,9 +46,11 @@
   },
   "dependencies": {
     "@toon-format/toon": "^2.3.0",
-    "axi-sdk-js": "^0.1.7"
+    "axi-sdk-js": "^0.1.7",
+    "cross-spawn": "^7.0.6"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
     "@types/node": "20.19.43",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3",
