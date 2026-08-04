@@ -65,6 +65,7 @@ export const COMMAND_HELP: Record<string, string> = {
     "  ado-axi pr list --reviewer @me",
     "  ado-axi pr get 812 --threads --full",
     "  ado-axi pr approve 812",
+    "  MSYS_NO_PATHCONV=1 ado-axi pr comment 812 --file /src/File.cs --line 10 --body \"...\"  # Git Bash",
   ].join("\n"),
   pipeline: [
     "ado-axi pipeline <list|runs|run|logs>",

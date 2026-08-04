@@ -4,6 +4,7 @@ import { request } from "../lib/client.js";
 import { requireProject, type ResolvedProfile } from "../lib/config.js";
 import { profileFromArgs } from "../lib/context.js";
 import { countLine, htmlToText, personName, pickFields, shortDate, truncate } from "../lib/format.js";
+import { validateRepositoryPath } from "../lib/repositoryPath.js";
 
 const LIST_FLAGS = ["repo", "status", "creator", "reviewer", "target", "source", "limit"];
 const GET_FLAGS = ["repo", "threads", "commits", "id"];
@@ -412,6 +413,9 @@ async function commentPr(args: ReturnType<typeof parseArgs>): Promise<Record<str
     ]);
   }
 
+  const file = flagString(args, "file");
+  if (file) validateRepositoryPath(file);
+
   const pr = await fetchPr(profile, id, flagString(args, "repo"), project);
   const repoName = pr.repository?.name;
   if (!repoName) {
@@ -432,7 +436,6 @@ async function commentPr(args: ReturnType<typeof parseArgs>): Promise<Record<str
     return { comment: { "pull-request": id, thread: threadId, id: comment.id ?? "", posted: true } };
   }
 
-  const file = flagString(args, "file");
   const line = flagNumber(args, "line");
   const thread = await request<{ id?: number }>(profile, {
     method: "POST",

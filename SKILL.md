@@ -69,6 +69,18 @@ ado-axi pr comment <id> --body "..." [--file <path> --line <n>] [--thread <id>]
 
 `pr list` shows a review tally (`2/3 approved`) so no follow-up call is needed to judge status.
 
+### Git Bash repository paths
+
+On Windows, Git Bash converts repository paths beginning with `/` even when quoted. Prefix inline
+comment commands with `MSYS_NO_PATHCONV=1` so `--file` reaches Azure DevOps unchanged.
+
+Example:
+```sh
+MSYS_NO_PATHCONV=1 ado-axi pr comment 812 --file '/src/Project/File.cs' --line 10 --body '...'
+```
+
+The CLI rejects Windows paths before creating a thread.
+
 ## Pipelines
 
 ```sh
