@@ -71,6 +71,7 @@ ado-axi                                   # dashboard: your work items, active P
 ado-axi work-item list --assigned-to @me  # open work items
 ado-axi work-item get 4211 --comments
 ado-axi work-item update 4211 --state "In Progress"
+ado-axi work-item update 4211 --add-tags agent-claimed --if-rev 7   # compare-and-swap claim
 ado-axi pr list --reviewer @me
 ado-axi pr comments 812 --full
 ado-axi pr approve 812

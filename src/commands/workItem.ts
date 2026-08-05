@@ -8,7 +8,20 @@ import { countLine, htmlToText, personName, pickFields, shortDate, truncate } fr
 const LIST_FLAGS = ["state", "type", "assigned-to", "iteration", "area", "tag", "search", "query", "limit"];
 const GET_FLAGS = ["comments", "relations"];
 const CREATE_FLAGS = ["type", "title", "description", "assigned-to", "area", "iteration", "parent", "tags", "set"];
-const UPDATE_FLAGS = ["title", "state", "assigned-to", "area", "iteration", "description", "tags", "set", "reason"];
+const UPDATE_FLAGS = [
+  "title",
+  "state",
+  "assigned-to",
+  "area",
+  "iteration",
+  "description",
+  "tags",
+  "add-tags",
+  "remove-tags",
+  "set",
+  "reason",
+  "if-rev",
+];
 const COMMENT_FLAGS = ["body"];
 
 const DEFAULT_FIELDS = [
@@ -203,15 +216,18 @@ async function getWorkItem(args: ReturnType<typeof parseArgs>): Promise<Record<s
   const out: Record<string, unknown> = {
     "work-item": {
       id: item.id,
+      rev: item.rev ?? "",
       type: String(fields["System.WorkItemType"] ?? ""),
       title: String(fields["System.Title"] ?? ""),
       state: String(fields["System.State"] ?? ""),
+      reason: String(fields["System.Reason"] ?? ""),
       assignee: personName(fields["System.AssignedTo"]),
       area: String(fields["System.AreaPath"] ?? ""),
       iteration: String(fields["System.IterationPath"] ?? ""),
       tags: String(fields["System.Tags"] ?? ""),
       created: shortDate(fields["System.CreatedDate"] as string | undefined),
       changed: shortDate(fields["System.ChangedDate"] as string | undefined),
+      "changed-by": personName(fields["System.ChangedBy"]),
       comments: Number(fields["System.CommentCount"] ?? 0),
       links: relations.length,
       parent: parent ? Number(parent.url?.split("/").pop()) : "",
@@ -334,13 +350,51 @@ async function createWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
   };
 }
 
+export function parseTags(value: unknown): string[] {
+  return String(value ?? "")
+    .split(";")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+export function mergeTags(
+  current: string[],
+  add: string[],
+  remove: string[],
+): { tags: string[]; added: string[]; removed: string[] } {
+  const removeSet = new Set(remove.map((t) => t.toLowerCase()));
+  const kept = current.filter((t) => !removeSet.has(t.toLowerCase()));
+  const removed = current.filter((t) => removeSet.has(t.toLowerCase()));
+  const seen = new Set(kept.map((t) => t.toLowerCase()));
+  const added: string[] = [];
+  for (const tag of add) {
+    if (seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    kept.push(tag);
+    added.push(tag);
+  }
+  return { tags: kept, added, removed };
+}
+
 async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
   assertKnownFlags(args, UPDATE_FLAGS, "work-item update");
   const profile = profileFromArgs(args);
   const id = requireId(args, "work-item update <id> --state <state>");
+  const ifRev = flagNumber(args, "if-rev");
 
   const current = await request<WorkItem>(profile, { path: `_apis/wit/workitems/${id}` });
   const fields = current.fields ?? {};
+
+  if (ifRev !== undefined && current.rev !== undefined && current.rev !== ifRev) {
+    throw new AxiError(
+      `#${id} is at rev ${current.rev}, expected ${ifRev} — update refused`,
+      "PRECONDITION_FAILED",
+      [
+        `Someone else changed the work item (last change by ${personName(fields["System.ChangedBy"]) || "unknown"})`,
+        `Run \`ado-axi work-item get ${id}\` to re-read the current rev, then retry with --if-rev ${current.rev}`,
+      ],
+    );
+  }
 
   const ops: Array<Record<string, unknown>> = [];
   const mapping: Array<[string, string]> = [
@@ -358,12 +412,40 @@ async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
     const value = flagString(args, flag);
     if (value === undefined) continue;
     const currentValue = field === "System.AssignedTo" ? personName(fields[field]) : String(fields[field] ?? "");
-    if (currentValue === value) {
+    if (currentValue === value && ifRev === undefined) {
       unchanged.push(flag);
       continue;
     }
-    ops.push(patch("add", `/fields/${field}`, value));
+    // Azure DevOps merges tags on `add`; only `replace` can drop existing tags.
+    const op = field === "System.Tags" && currentValue !== "" ? "replace" : "add";
+    ops.push(patch(op, `/fields/${field}`, value));
   }
+
+  const addTags = flagList(args, "add-tags") ?? [];
+  const removeTags = flagList(args, "remove-tags") ?? [];
+  let tagChange: { added: string[]; removed: string[] } | undefined;
+  if (addTags.length > 0 || removeTags.length > 0) {
+    if (flagString(args, "tags") !== undefined) {
+      throw new AxiError("--tags cannot be combined with --add-tags/--remove-tags", "VALIDATION_ERROR", [
+        "--tags replaces the whole tag string; --add-tags/--remove-tags mutate it in place",
+      ]);
+    }
+    const currentTags = parseTags(fields["System.Tags"]);
+    const merged = mergeTags(currentTags, addTags, removeTags);
+    if (merged.added.length > 0 || merged.removed.length > 0) {
+      ops.push(
+        patch(
+          currentTags.length > 0 ? "replace" : "add",
+          "/fields/System.Tags",
+          merged.tags.join("; "),
+        ),
+      );
+      tagChange = { added: merged.added, removed: merged.removed };
+    } else {
+      unchanged.push("tags");
+    }
+  }
+
   ops.push(...setFlags(args));
 
   if (ops.length === 0) {
@@ -374,27 +456,54 @@ async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
     }
     throw new AxiError("no changes requested", "VALIDATION_ERROR", [
       `Usage: ado-axi work-item update ${id} --state <state> [--title "..."] [--assigned-to <user>]`,
-      `Fields: ${mapping.map(([f]) => `--${f}`).join(", ")}, --set '{"<Field.Ref>": <value>}'`,
+      `Fields: ${mapping.map(([f]) => `--${f}`).join(", ")}, --add-tags a,b, --remove-tags c, --set '{"<Field.Ref>": <value>}'`,
     ]);
   }
 
-  const updated = await request<WorkItem>(profile, {
-    method: "PATCH",
-    path: `_apis/wit/workitems/${id}`,
-    body: ops,
-    contentType: "application/json-patch+json",
-  });
+  if (ifRev !== undefined) ops.unshift({ op: "test", path: "/rev", value: ifRev });
 
-  return {
-    updated: {
-      id: updated.id,
-      title: String(updated.fields?.["System.Title"] ?? ""),
-      state: String(updated.fields?.["System.State"] ?? ""),
-      assignee: personName(updated.fields?.["System.AssignedTo"]),
-      changed: ops.length,
-      skipped: unchanged.join(", "),
-    },
+  let updated: WorkItem;
+  try {
+    updated = await request<WorkItem>(profile, {
+      method: "PATCH",
+      path: `_apis/wit/workitems/${id}`,
+      body: ops,
+      contentType: "application/json-patch+json",
+    });
+  } catch (err) {
+    if (
+      ifRev !== undefined &&
+      err instanceof AxiError &&
+      (err.code === "PRECONDITION_FAILED" || /VS403351|Test Operation/i.test(err.message))
+    ) {
+      throw new AxiError(
+        `#${id} changed during the update — the --if-rev ${ifRev} check failed`,
+        "PRECONDITION_FAILED",
+        [
+          err.message,
+          `Run \`ado-axi work-item get ${id}\` to read the current rev, then retry`,
+        ],
+      );
+    }
+    throw err;
+  }
+
+  const result: Record<string, unknown> = {
+    id: updated.id,
+    rev: updated.rev ?? "",
+    title: String(updated.fields?.["System.Title"] ?? ""),
+    state: String(updated.fields?.["System.State"] ?? ""),
+    assignee: personName(updated.fields?.["System.AssignedTo"]),
+    changed: ifRev === undefined ? ops.length : ops.length - 1,
+    skipped: unchanged.join(", "),
   };
+  if (tagChange) {
+    result.tags = String(updated.fields?.["System.Tags"] ?? "");
+    result["tags-added"] = tagChange.added.join(", ");
+    result["tags-removed"] = tagChange.removed.join(", ");
+  }
+
+  return { updated: result };
 }
 
 async function commentWorkItem(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {

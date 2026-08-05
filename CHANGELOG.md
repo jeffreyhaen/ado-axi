@@ -9,9 +9,15 @@ All notable changes to ado-axi are documented here. This project follows
 
 - `ado-axi pr comments <id>` (alias `pr threads`) — shorthand for `pr get <id> --threads`
 - `pr get` accepts `--id <n>` in addition to the positional id
+- `work-item update --if-rev <n>` — compare-and-swap via a JSON-Patch `test /rev` op; fails with `PRECONDITION_FAILED` instead of silently overwriting a concurrently changed item
+- `work-item update --add-tags a,b` / `--remove-tags c` — in-place tag mutation that preserves unrelated tags (case-insensitive, deduplicated)
+- `work-item get` now reports `rev`, `reason`, and `changed-by`
+- `api --content-type json|json-patch|merge-patch|text|<media type>` — makes the raw REST bridge usable for work item writes, which require `application/json-patch+json`
 
 ### Fixed
 
+- `work-item update --tags` (and the new `--remove-tags`) now emit a JSON-Patch `replace` op for `System.Tags` when tags already exist — Azure DevOps *merges* tags on `add`, so removing a tag silently did nothing
+- HTTP 412 now maps to `PRECONDITION_FAILED` (e.g. `VS403351: Test Operation for path /rev failed`) instead of a generic `API_ERROR`
 - `pr get --threads --full` now prints complete comment text; `--full` previously only applied to the description
 - `TF200016` (project not found) errors now point at a missing `--org` and `ado-axi config list` instead of `project list`
 - `az` (auth) is now spawned via `cross-spawn` instead of a raw `child_process.execFile`. On Windows, `az` is a `.cmd` shim, which Node's shell-less spawn cannot execute (fails with ENOENT); this previously surfaced as spurious "not signed in" / auth failures even when `az` was installed and logged in. Also adds a clearer error message when `az` is genuinely missing from PATH.

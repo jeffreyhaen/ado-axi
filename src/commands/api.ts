@@ -4,8 +4,24 @@ import { buildUrl, request, type AdoHost } from "../lib/client.js";
 import { profileFromArgs } from "../lib/context.js";
 import { truncate } from "../lib/format.js";
 
-const API_FLAGS = ["method", "body", "query", "api-version", "host", "no-project", "raw", "limit"];
+const API_FLAGS = [
+  "method",
+  "body",
+  "query",
+  "api-version",
+  "host",
+  "no-project",
+  "raw",
+  "limit",
+  "content-type",
+];
 const HOSTS = ["dev", "vsrm", "vssps", "almsearch"];
+const CONTENT_TYPES: Record<string, string> = {
+  json: "application/json",
+  "json-patch": "application/json-patch+json",
+  "merge-patch": "application/merge-patch+json",
+  text: "text/plain",
+};
 
 export async function apiCommand(argv: string[]): Promise<Record<string, unknown>> {
   const args = parseArgs(argv);
@@ -24,6 +40,7 @@ export async function apiCommand(argv: string[]): Promise<Record<string, unknown
       "Example: ado-axi api _apis/wiki/wikis",
       "Example: ado-axi api POST _apis/wit/wiql --body '{\"query\":\"SELECT [System.Id] FROM WorkItems\"}'",
       "Paths are relative to https://dev.azure.com/<org>/<project>/ — pass --no-project for org-level paths",
+      `Work item writes need JSON-Patch: --content-type json-patch --body '[{"op":"add","path":"/fields/System.State","value":"Active"}]'`,
     ]);
   }
 
@@ -54,6 +71,17 @@ export async function apiCommand(argv: string[]): Promise<Record<string, unknown
     }
   }
 
+  let contentType: string | undefined;
+  const rawContentType = flagString(args, "content-type");
+  if (rawContentType) {
+    contentType = CONTENT_TYPES[rawContentType] ?? rawContentType;
+    if (!contentType.includes("/")) {
+      throw new AxiError(`unknown --content-type '${rawContentType}'`, "VALIDATION_ERROR", [
+        `Shorthands: ${Object.keys(CONTENT_TYPES).join(", ")} — or pass a full media type`,
+      ]);
+    }
+  }
+
   const options = {
     method: method ?? (body ? "POST" : "GET"),
     path,
@@ -61,6 +89,7 @@ export async function apiCommand(argv: string[]): Promise<Record<string, unknown
     query,
     body,
     apiVersion: flagString(args, "api-version"),
+    contentType,
     host,
     raw: flagBool(args, "raw"),
   };

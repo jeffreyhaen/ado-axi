@@ -43,16 +43,33 @@ different org. A `TF200016: project does not exist` error almost always means a 
 ado-axi work-item list [--state open|all|<State>] [--type <type>] [--assigned-to @me|<name>]
                        [--iteration @current|<path>] [--area <path>] [--tag <tag>] [--search <text>]
                        [--query "<raw WIQL>"] [--limit 30]
-ado-axi work-item get <id> [--comments] [--full]
+ado-axi work-item get <id> [--comments] [--full]       # includes `rev` for compare-and-swap
 ado-axi work-item create --type Task --title "..." [--description "..."] [--assigned-to <user>]
                          [--parent <id>] [--area <path>] [--iteration <path>] [--tags "a; b"]
 ado-axi work-item update <id> [--state <state>] [--title "..."] [--assigned-to <user>]
+                              [--add-tags a,b] [--remove-tags c] [--if-rev <n>]
                               [--set '{"Microsoft.VSTS.Common.Priority": 1}']
 ado-axi work-item comment <id> --body "..."
 ```
 
 `list` builds WIQL for you; drop to `--query` for anything the flags do not express.
 `update` is idempotent — setting a field to its current value reports a no-op and exits 0.
+
+### Safe concurrent updates
+
+`--if-rev <n>` turns an update into a compare-and-swap: the patch carries a JSON-Patch
+`{"op":"test","path":"/rev"}`, so the write either applies to exactly that revision or fails with
+`PRECONDITION_FAILED` — never a silent double-claim. Read `rev` from `work-item get`.
+`--if-rev` also disables the idempotent no-op skip, so the intended fields are always written.
+
+`--add-tags` / `--remove-tags` mutate the tag list in place (case-insensitive, deduplicated)
+instead of replacing `System.Tags`, so unrelated tags survive. They cannot be combined with
+`--tags`, which replaces the whole string.
+
+```sh
+ado-axi work-item get 4211                  # read `rev` from the output
+ado-axi work-item update 4211 --assigned-to me@corp.com --add-tags agent-claimed --if-rev 7
+```
 
 ## Pull requests
 
@@ -109,10 +126,14 @@ ado-axi api _apis/wiki/wikis
 ado-axi api _apis/testplan/plans --query 'filterActivePlans=true'
 ado-axi api POST _apis/search/codesearchresults --host almsearch --body '{"searchText":"TODO"}'
 ado-axi api _apis/projects --no-project           # organization-level path
+ado-axi api PATCH _apis/wit/workitems/4211 --content-type json-patch \
+  --body '[{"op":"test","path":"/rev","value":7},{"op":"add","path":"/fields/System.State","value":"Active"}]'
 ```
 
 Paths are relative to `https://dev.azure.com/<org>/<project>/`. `--host` selects
-`dev` (default), `vsrm`, `vssps`, or `almsearch`.
+`dev` (default), `vsrm`, `vssps`, or `almsearch`. `--content-type` accepts the shorthands
+`json` (default), `json-patch`, `merge-patch`, `text`, or any media type — work item writes
+require `json-patch`.
 
 ## Conventions
 

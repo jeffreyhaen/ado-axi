@@ -141,6 +141,13 @@ function translateError(
       typeKey ? `type: ${typeKey}` : "Check the flag values passed to this command",
     ]);
   }
+  if (response.status === 412) {
+    return new AxiError(message || "precondition failed", "PRECONDITION_FAILED", [
+      /VS403351|Test Operation/i.test(message)
+        ? "The resource changed since the revision you tested against — re-read it and retry"
+        : "A precondition (If-Match / test operation) on this request failed",
+    ]);
+  }
   if (response.status === 429) {
     return new AxiError("rate limited by Azure DevOps", "RATE_LIMITED", [
       `Retry after ${response.headers.get("retry-after") ?? "a few"} seconds`,
