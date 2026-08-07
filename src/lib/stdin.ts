@@ -6,5 +6,6 @@ export async function readStdinIfPiped(
   for await (const chunk of stream) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  return Buffer.concat(chunks);
+  const buffer = Buffer.concat(chunks);
+  return buffer.length === 0 ? undefined : buffer;
 }

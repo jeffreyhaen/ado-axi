@@ -12,9 +12,14 @@ describe("readStdinIfPiped", () => {
     expect(result?.toString("utf8")).toBe("first\nsecond\n\n");
   });
 
-  it("preserves empty piped stdin as an empty body", async () => {
+  it("treats empty piped stdin as absent", async () => {
     const result = await readStdinIfPiped(streamOf());
-    expect(result).toEqual(Buffer.alloc(0));
+    expect(result).toBeUndefined();
+  });
+
+  it("treats a whitespace-only buffer as present", async () => {
+    const result = await readStdinIfPiped(streamOf(" "));
+    expect(result?.toString("utf8")).toBe(" ");
   });
 
   it("preserves binary content", async () => {
