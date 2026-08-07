@@ -125,13 +125,15 @@ goes through the raw REST bridge:
 ado-axi api _apis/wiki/wikis
 ado-axi api _apis/testplan/plans --query 'filterActivePlans=true'
 ado-axi api POST _apis/search/codesearchresults --host almsearch --body '{"searchText":"TODO"}'
+cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=payload.bin' --content-type application/octet-stream
 ado-axi api _apis/projects --no-project           # organization-level path
 ado-axi api PATCH _apis/wit/workitems/4211 --content-type json-patch \
   --body '[{"op":"test","path":"/rev","value":7},{"op":"add","path":"/fields/System.State","value":"Active"}]'
 ```
 
 Paths are relative to `https://dev.azure.com/<org>/<project>/`. `--host` selects
-`dev` (default), `vsrm`, `vssps`, or `almsearch`. `--content-type` accepts the shorthands
+`dev` (default), `vsrm`, `vssps`, or `almsearch`. When `--body` is omitted and stdin is piped,
+stdin is sent unchanged as the request body. `--content-type` accepts the shorthands
 `json` (default), `json-patch`, `merge-patch`, `text`, or any media type — work item writes
 require `json-patch`.
 
@@ -141,5 +143,9 @@ require `json-patch`.
 - Exit codes: 0 success (including no-ops), 1 runtime error, 2 usage error.
 - Unknown flags are rejected by name — read the `help` line and retry once.
 - Lists take `--limit` and `--fields a,b`; detail views truncate and take `--full`.
+- On Windows/Git Bash, never pass large or multiline content through a `.cmd` shim as an
+  interpolated CLI argument such as `--description "$(cat file)"`; `cmd.exe` can truncate it.
+  Pipe it instead: `cat file | ado-axi work-item update <id>` or
+  `cat file | ado-axi api POST <path> --content-type <media-type>`.
 - Mutating commands (`create`, `update`, `comment`, `approve`, `pipeline run`) change real
   state — only run them when the user asked for that change.

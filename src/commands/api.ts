@@ -3,6 +3,7 @@ import { assertKnownFlags, flagBool, flagNumber, flagString, parseArgs } from ".
 import { buildUrl, request, type AdoHost } from "../lib/client.js";
 import { profileFromArgs } from "../lib/context.js";
 import { truncate } from "../lib/format.js";
+import { readStdinIfPiped } from "../lib/stdin.js";
 
 const API_FLAGS = [
   "method",
@@ -61,7 +62,8 @@ export async function apiCommand(argv: string[]): Promise<Record<string, unknown
 
   let body: unknown;
   const rawBody = flagString(args, "body");
-  if (rawBody) {
+  const stdinBody = rawBody === undefined ? await readStdinIfPiped() : undefined;
+  if (rawBody !== undefined) {
     try {
       body = JSON.parse(rawBody);
     } catch {
@@ -69,6 +71,8 @@ export async function apiCommand(argv: string[]): Promise<Record<string, unknown
         `Example: --body '{"query":"SELECT [System.Id] FROM WorkItems"}'`,
       ]);
     }
+  } else if (stdinBody !== undefined) {
+    body = stdinBody;
   }
 
   let contentType: string | undefined;
@@ -83,7 +87,7 @@ export async function apiCommand(argv: string[]): Promise<Record<string, unknown
   }
 
   const options = {
-    method: method ?? (body ? "POST" : "GET"),
+    method: method ?? (body !== undefined ? "POST" : "GET"),
     path,
     project: flagBool(args, "no-project") ? undefined : profile.project,
     query,

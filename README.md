@@ -78,10 +78,12 @@ ado-axi pr approve 812
 ado-axi pipeline runs --result failed
 ado-axi pipeline logs 98231 --tail 200
 ado-axi api _apis/wiki/wikis               # anything not covered by a command
+cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=payload.bin' --content-type application/octet-stream
 ```
 
 Every command supports `--help`. Lists support `--limit` and `--fields a,b`; detail views
-truncate long content and support `--full`.
+truncate long content and support `--full`. For `api`, piped stdin is used as the raw request body
+when `--body` is omitted; `work-item update` likewise uses piped stdin for `--description`.
 
 ## Agent integration
 

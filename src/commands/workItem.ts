@@ -4,6 +4,7 @@ import { request, requestList } from "../lib/client.js";
 import { requireProject, type ResolvedProfile } from "../lib/config.js";
 import { profileFromArgs } from "../lib/context.js";
 import { countLine, htmlToText, personName, pickFields, shortDate, truncate } from "../lib/format.js";
+import { readStdinIfPiped } from "../lib/stdin.js";
 
 const LIST_FLAGS = ["state", "type", "assigned-to", "iteration", "area", "tag", "search", "query", "limit"];
 const GET_FLAGS = ["comments", "relations"];
@@ -408,8 +409,13 @@ async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
     ["reason", "System.Reason"],
   ];
   const unchanged: string[] = [];
+  const stdinDescription = flagString(args, "description") === undefined
+    ? (await readStdinIfPiped())?.toString("utf8")
+    : undefined;
   for (const [flag, field] of mapping) {
-    const value = flagString(args, flag);
+    const value = flag === "description" && stdinDescription !== undefined
+      ? stdinDescription
+      : flagString(args, flag);
     if (value === undefined) continue;
     const currentValue = field === "System.AssignedTo" ? personName(fields[field]) : String(fields[field] ?? "");
     if (currentValue === value && ifRev === undefined) {

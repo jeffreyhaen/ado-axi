@@ -57,10 +57,13 @@ export async function request<T = unknown>(
     Accept: "application/json",
     "User-Agent": "ado-axi",
   };
-  let body: string | undefined;
+  let body: string | Uint8Array | undefined;
   if (options.body !== undefined) {
     headers["Content-Type"] = options.contentType ?? "application/json";
-    body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+    body =
+      typeof options.body === "string" || options.body instanceof Uint8Array
+        ? options.body
+        : JSON.stringify(options.body);
   }
 
   let response: Response;
