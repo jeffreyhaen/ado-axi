@@ -5,6 +5,8 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-20
+
 ### Added
 
 - `pr update <id>` for title, description (including piped multiline stdin), draft, and auto-complete changes with read-before-write no-op detection
@@ -58,4 +60,6 @@ Initial public release.
 - Idempotent mutations: setting a work item field or a pull request vote to its current value reports a no-op and exits 0
 - `SKILL.md` in the repo root for on-demand agent discovery
 
+[Unreleased]: https://github.com/jeffreyhaen/ado-axi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jeffreyhaen/ado-axi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jeffreyhaen/ado-axi/releases/tag/v0.2.0
