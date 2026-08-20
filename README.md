@@ -4,8 +4,8 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
 
-Agent-ergonomic CLI for **Azure DevOps** — work items, pull requests, pipelines, and a raw
-REST escape hatch, in token-efficient [TOON](https://toonformat.dev/) output.
+Agent-ergonomic CLI for **Azure DevOps** — work items, pull requests, Git refs, pipelines,
+and a raw REST escape hatch, in token-efficient [TOON](https://toonformat.dev/) output.
 
 `ado-axi` is an Azure DevOps [AXI](https://github.com/kunchenguid/axi) (Agent eXperience Interface): a CLI
 designed for autonomous agents rather than humans. It talks to the Azure DevOps REST API
@@ -74,16 +74,42 @@ ado-axi work-item update 4211 --state "In Progress"
 ado-axi work-item update 4211 --add-tags agent-claimed --if-rev 7   # compare-and-swap claim
 ado-axi pr list --reviewer @me
 ado-axi pr comments 812 --full
+ado-axi pr update 812 --draft false --auto-complete true
+ado-axi pr checks 812
+ado-axi pr diff 812 --limit 50
+ado-axi pr reviewer add 812 --reviewer jane@example.com
+ado-axi pr complete 812 --squash --delete-source-branch
 ado-axi pr approve 812
+ado-axi ref list --repo Web --limit 50
+ado-axi ref create --repo Web --name feature/agent --source main
+ado-axi ref delete --repo Web --name feature/agent --old-object-id <40-hex>
 ado-axi pipeline runs --result failed
 ado-axi pipeline logs 98231 --tail 200
+ado-axi pipeline watch 98231 --interval 10 --timeout 1800
 ado-axi api _apis/wiki/wikis               # anything not covered by a command
 cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=payload.bin' --content-type application/octet-stream
 ```
 
 Every command supports `--help`. Lists support `--limit` and `--fields a,b`; detail views
 truncate long content and support `--full`. For `api`, piped stdin is used as the raw request body
-when `--body` is omitted; `work-item update` likewise uses piped stdin for `--description`.
+when `--body` is omitted; `work-item update` and `pr update` likewise accept a multiline description
+through piped stdin.
+
+### Safe PR and ref mutations
+
+`pr update` reads current state and reports unchanged requests as no-ops. `pr complete` includes the
+current source commit, never bypasses policy, reports an already completed PR as a no-op, and
+separates completed, queued, conflict, policy-blocked, and failed outcomes. `pr checks` combines
+policy evaluations and PR statuses; `pr diff` returns changed paths rather than file bodies.
+
+`ref create` requires exactly one explicit source branch or object ID and never overwrites an
+existing branch. `ref delete` first resolves the exact branch and sends its current object ID as
+Azure DevOps' concurrency guard. Add `--old-object-id <40-hex>` when the caller must assert a
+previously observed version. Existing-at-the-intended-object and already-absent requests are no-ops.
+
+`pipeline watch` polls every 10 seconds by default (minimum 2), stops after 1800 seconds by default,
+and accepts `--interval`/`--timeout` in seconds. Failed, cancelled, timed-out, and unexpected runs
+produce structured output and exit non-zero; successful and partially successful runs exit zero.
 
 ## Agent integration
 

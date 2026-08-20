@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { buildUrl } from "../src/lib/client.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildUrl, request } from "../src/lib/client.js";
 import type { ResolvedProfile } from "../src/lib/config.js";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete process.env.EXAMPLE_PAT;
+});
 
 const profile: ResolvedProfile = {
   name: "test",
@@ -40,5 +45,18 @@ describe("buildUrl", () => {
     const url = buildUrl(profile, { path: "_apis/build/builds", query: { $top: 5, branchName: undefined } });
     expect(url).toContain("%24top=5");
     expect(url).not.toContain("branchName");
+  });
+
+  it("translates HTTP 409 into a structured conflict", async () => {
+    process.env.EXAMPLE_PAT = "secret";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message: "Ref changed" }), {
+      status: 409,
+      headers: { "content-type": "application/json" },
+    })));
+    await expect(request(profile, { path: "_apis/git/repositories/Repo/refs" })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Ref changed",
+      suggestions: expect.arrayContaining([expect.stringContaining("concurrently")]),
+    });
   });
 });

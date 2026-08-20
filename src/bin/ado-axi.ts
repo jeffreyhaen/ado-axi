@@ -11,6 +11,7 @@ import { homeCommand } from "../commands/home.js";
 import { pipelineCommand } from "../commands/pipeline.js";
 import { prCommand } from "../commands/pr.js";
 import { projectCommand, repoCommand } from "../commands/repo.js";
+import { refCommand } from "../commands/ref.js";
 import { workItemCommand } from "../commands/workItem.js";
 import { normalizeArgv } from "../lib/argv.js";
 import { COMMAND_HELP, DESCRIPTION, TOP_LEVEL_HELP } from "../help.js";
@@ -51,6 +52,7 @@ const aliases: Record<string, string> = {
   "work-items": "work-item",
   pipelines: "pipeline",
   repos: "repo",
+  refs: "ref",
   projects: "project",
   prs: "pr",
 };
@@ -72,7 +74,7 @@ function unknownCommand(command: string): string {
     error: `unknown command \`${command}\``,
     code: "VALIDATION_ERROR",
     help: [
-      "Commands: work-item | pr | pipeline | repo | project | api | doctor | config",
+      "Commands: work-item | pr | pipeline | repo | ref | project | api | doctor | config",
       "Run `ado-axi --help` for the full command surface",
       "Run `ado-axi` with no arguments for the dashboard",
     ],
@@ -111,6 +113,8 @@ await runAxiCli({
     pipelines: (args) => pipelineCommand(args),
     repo: (args) => repoCommand(args),
     repos: (args) => repoCommand(args),
+    ref: (args) => refCommand(args),
+    refs: (args) => refCommand(args),
     project: (args) => projectCommand(args),
     projects: (args) => projectCommand(args),
     api: (args) => apiCommand(args),

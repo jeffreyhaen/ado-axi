@@ -11,12 +11,18 @@ permissions:
 
 jobs:
   build:
-    name: Build + Test (Node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    name: Build + Test (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        node: ["20", "22"]
+        include:
+          - os: ubuntu-latest
+            node: "20"
+          - os: ubuntu-latest
+            node: "22"
+          - os: windows-latest
+            node: "20"
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +47,7 @@ jobs:
         run: pnpm test
 
       - name: Smoke test
+        shell: bash
         run: |
           node dist/bin/ado-axi.js --version
           node dist/bin/ado-axi.js --help > /dev/null

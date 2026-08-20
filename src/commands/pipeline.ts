@@ -9,6 +9,7 @@ const LIST_FLAGS = ["limit", "name"];
 const RUNS_FLAGS = ["pipeline", "branch", "status", "result", "requested-for", "limit"];
 const RUN_FLAGS = ["pipeline", "branch", "variables", "parameters"];
 const LOGS_FLAGS = ["log", "tail"];
+const WATCH_FLAGS = ["interval", "timeout"];
 
 interface Pipeline {
   id: number;
@@ -45,9 +46,11 @@ export async function pipelineCommand(argv: string[]): Promise<Record<string, un
       return runPipeline(rest);
     case "logs":
       return buildLogs(rest);
+    case "watch":
+      return watchPipeline(rest);
     default:
       throw new AxiError(`unknown subcommand \`pipeline ${sub}\``, "VALIDATION_ERROR", [
-        "Subcommands: list | runs | run | logs",
+        "Subcommands: list | runs | run | logs | watch",
         "Run `ado-axi pipeline --help` for the full reference",
       ]);
   }
@@ -220,18 +223,123 @@ function parseJsonFlag(
   }
 }
 
+function requireRunId(args: ReturnType<typeof parseArgs>, command: string): number {
+  const raw = args.positionals[0];
+  const id = Number(raw);
+  if (!raw || !Number.isInteger(id) || id < 1) {
+    throw new AxiError("a positive numeric run id is required", "VALIDATION_ERROR", [
+      `Usage: ado-axi pipeline ${command} <run-id>`,
+      "Run `ado-axi pipeline runs` to find run ids",
+    ]);
+  }
+  return id;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function retryAfterMilliseconds(error: AxiError, fallback: number): number {
+  const text = error.suggestions.join(" ");
+  const match = text.match(/Retry after ([0-9.]+) seconds/i);
+  return match ? Math.max(fallback, Number(match[1]) * 1000) : fallback;
+}
+
+async function watchPipeline(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
+  assertKnownFlags(args, WATCH_FLAGS, "pipeline watch");
+  const profile = profileFromArgs(args);
+  const project = requireProject(profile, "pipeline watch");
+  const runId = requireRunId(args, "watch");
+  const intervalSeconds = flagNumber(args, "interval") ?? 10;
+  const timeoutSeconds = flagNumber(args, "timeout") ?? 1800;
+  if (intervalSeconds < 2) {
+    throw new AxiError("--interval must be at least 2 seconds", "VALIDATION_ERROR", [
+      "Use a slower polling interval to avoid Azure DevOps rate limits",
+    ]);
+  }
+  if (timeoutSeconds < 1) throw new AxiError("--timeout must be at least 1 second", "VALIDATION_ERROR");
+  const interval = intervalSeconds * 1000;
+  const started = Date.now();
+  const deadline = started + timeoutSeconds * 1000;
+  let polls = 0;
+  let build: Build | undefined;
+
+  while (Date.now() <= deadline) {
+    try {
+      build = await request<Build>(profile, {
+        path: `_apis/build/builds/${runId}`,
+        project,
+      });
+      polls++;
+    } catch (error) {
+      if (!(error instanceof AxiError) || error.code !== "RATE_LIMITED") throw error;
+      const delay = retryAfterMilliseconds(error, interval);
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      await wait(Math.min(delay, remaining));
+      if (delay >= remaining) break;
+      continue;
+    }
+    if ((build.status ?? "").toLowerCase() === "completed") break;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await wait(Math.min(interval, remaining));
+    if (interval >= remaining) break;
+  }
+
+  const elapsed = Math.max(0, Math.round((Date.now() - started) / 1000));
+  if (!build || (build.status ?? "").toLowerCase() !== "completed") {
+    process.exitCode = 1;
+    return {
+      run: {
+        id: runId,
+        outcome: "timeout",
+        status: build?.status ?? "unknown",
+        result: build?.result ?? "",
+        polls,
+        "elapsed-seconds": elapsed,
+        "timeout-seconds": timeoutSeconds,
+      },
+      help: [
+        `Run \`ado-axi pipeline runs --limit 5\` to check the run later`,
+        `Retry with a larger --timeout than ${timeoutSeconds} seconds`,
+      ],
+    };
+  }
+  const result = (build.result ?? "").toLowerCase();
+  const outcome = result === "succeeded"
+    ? "success"
+    : result === "partiallysucceeded"
+      ? "partial-success"
+      : result === "failed"
+        ? "failure"
+        : result === "canceled" || result === "cancelled"
+          ? "cancellation"
+          : "unexpected";
+  if (["failure", "cancellation", "unexpected"].includes(outcome)) process.exitCode = 1;
+  const out: Record<string, unknown> = {
+    run: {
+      id: runId,
+      pipeline: build.definition?.name ?? "",
+      number: build.buildNumber ?? "",
+      outcome,
+      status: build.status ?? "",
+      result: build.result ?? "",
+      polls,
+      "elapsed-seconds": elapsed,
+      finished: shortDate(build.finishTime),
+      url: build._links?.web?.href ?? "",
+    },
+  };
+  if (outcome === "failure") out.help = [`Run \`ado-axi pipeline logs ${runId}\` to inspect the failure`];
+  return out;
+}
+
 async function buildLogs(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
   assertKnownFlags(args, LOGS_FLAGS, "pipeline logs");
   const profile = profileFromArgs(args);
   const project = requireProject(profile, "pipeline logs");
-  const raw = args.positionals[0];
-  const buildId = Number(raw);
-  if (!raw || !Number.isFinite(buildId)) {
-    throw new AxiError("a numeric run id is required", "VALIDATION_ERROR", [
-      "Usage: ado-axi pipeline logs <run-id> [--log <n>] [--tail <lines>] [--full]",
-      "Run `ado-axi pipeline runs` to find run ids",
-    ]);
-  }
+  const buildId = requireRunId(args, "logs");
 
   const logs = await request<{ value?: Array<{ id: number; lineCount?: number }>; count?: number }>(
     profile,

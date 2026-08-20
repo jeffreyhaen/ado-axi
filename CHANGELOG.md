@@ -7,6 +7,13 @@ All notable changes to ado-axi are documented here. This project follows
 
 ### Added
 
+- `pr update <id>` for title, description (including piped multiline stdin), draft, and auto-complete changes with read-before-write no-op detection
+- `pr complete <id>` with current-source-commit concurrency, squash/source-branch options, policy-safe completion, and completed/queued/conflict/policy-blocked/failed outcomes
+- `pr checks <id>` aggregates policy evaluations and PR statuses into bounded passed/failed/pending summaries; `--full` expands actionable details
+- `pr diff <id>` returns bounded iteration change/path metadata with `--limit`, `--full`, and explicit truncation hints
+- `pr reviewer list|add|remove <id>` manages reviewers while preserving existing `pr approve`; duplicate adds and absent removes are no-ops
+- `ref list|create|delete` adds bounded Git ref workflows with strict branch normalization, source resolution, old-object-ID concurrency, and repeat-safe no-ops
+- `pipeline watch <run-id>` polls with configurable interval/timeout, rate-limit backoff, compact terminal outcomes, and non-zero failure/cancellation/timeout semantics
 - `ado-axi pr comments <id>` (alias `pr threads`) — shorthand for `pr get <id> --threads`
 - `pr get` accepts `--id <n>` in addition to the positional id
 - `work-item update --if-rev <n>` — compare-and-swap via a JSON-Patch `test /rev` op; fails with `PRECONDITION_FAILED` instead of silently overwriting a concurrently changed item
@@ -16,6 +23,9 @@ All notable changes to ado-axi are documented here. This project follows
 
 ### Fixed
 
+- PR checks use the required Azure DevOps `7.1-preview.1` API version for policy evaluations and PR statuses
+- PR completion now reports asynchronous `mergeStatus: queued` responses as queued instead of failed
+- CI now covers Windows on Node 20 in addition to the supported Linux Node 20/22 matrix
 - `work-item update --tags` (and the new `--remove-tags`) now emit a JSON-Patch `replace` op for `System.Tags` when tags already exist — Azure DevOps *merges* tags on `add`, so removing a tag silently did nothing
 - HTTP 412 now maps to `PRECONDITION_FAILED` (e.g. `VS403351: Test Operation for path /rev failed`) instead of a generic `API_ERROR`
 - `pr get --threads --full` now prints complete comment text; `--full` previously only applied to the description

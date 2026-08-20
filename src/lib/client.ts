@@ -144,6 +144,12 @@ function translateError(
       typeKey ? `type: ${typeKey}` : "Check the flag values passed to this command",
     ]);
   }
+  if (response.status === 409) {
+    return new AxiError(message || "conflict", "CONFLICT", [
+      "The resource changed concurrently or the requested transition conflicts with its current state",
+      "Re-read the resource before retrying",
+    ]);
+  }
   if (response.status === 412) {
     return new AxiError(message || "precondition failed", "PRECONDITION_FAILED", [
       /VS403351|Test Operation/i.test(message)

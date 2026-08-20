@@ -80,11 +80,22 @@ ado-axi pr get <id> [--threads] [--full]   # --full = complete description AND c
 ado-axi pr comments <id> [--full]          # alias for `pr get <id> --threads`
 ado-axi pr create --repo <repo> --source <branch> [--target main] --title "..." [--description "..."]
                   [--reviewers a,b] [--draft] [--work-items 1,2]
+ado-axi pr update <id> [--title "..."] [--description "..."] [--draft true|false]
+                       [--auto-complete true|false]
+ado-axi pr complete <id> [--squash true|false] [--delete-source-branch true|false]
+ado-axi pr checks <id> [--limit 10] [--full]
+ado-axi pr diff <id> [--limit 20] [--full]
+ado-axi pr reviewer list <id>
+ado-axi pr reviewer add|remove <id> --reviewer <identity> [--required]
 ado-axi pr approve <id> [--vote approve|approve-with-suggestions|wait-for-author|reject|reset]
 ado-axi pr comment <id> --body "..." [--file <path> --line <n>] [--thread <id>]
 ```
 
 `pr list` shows a review tally (`2/3 approved`) so no follow-up call is needed to judge status.
+`pr update` and reviewer mutations report safely detected retries as no-ops. A description may be
+piped to `pr update`. `pr complete` uses the current source commit, never bypasses policy, and treats
+an already completed PR as a no-op. Run `pr checks` before completion to see concise policy/status
+counts; use `--full` only when the bounded actionable list is insufficient.
 
 ### Git Bash repository paths
 
@@ -105,7 +116,11 @@ ado-axi pipeline list [--name <filter>]
 ado-axi pipeline runs [--pipeline <id>] [--branch <branch>] [--result failed] [--limit 20]
 ado-axi pipeline run --pipeline <id> [--branch <branch>] [--variables '{"k":"v"}']
 ado-axi pipeline logs <run-id> [--log <log-id>] [--tail 120] [--full]
+ado-axi pipeline watch <run-id> [--interval 10] [--timeout 1800]
 ```
+
+`watch` uses seconds, refuses intervals below 2 seconds, and always times out (30 minutes by
+default). Failed, cancelled, timed-out, and unexpected outcomes exit non-zero with TOON output.
 
 `logs` returns the tail of the last log by default — pass `--log <id>` for a specific step.
 
@@ -114,7 +129,14 @@ ado-axi pipeline logs <run-id> [--log <log-id>] [--tail 120] [--full]
 ```sh
 ado-axi repo list [--name <filter>]
 ado-axi repo branches --repo <name> [--name <filter>]
+ado-axi ref list --repo <name> [--name <prefix>] [--limit 50] [--full]
+ado-axi ref create --repo <name> --name <branch> (--source <branch> | --source-object-id <40-hex>)
+ado-axi ref delete --repo <name> --name <branch> [--old-object-id <40-hex>]
 ```
+
+Ref creation never overwrites an existing branch. Deletion resolves the exact branch and uses its
+current object ID as the Azure DevOps concurrency guard; `--old-object-id` additionally asserts a
+previously observed version. Existing-at-the-intended-object and already-absent requests are no-ops.
 
 ## Escape hatch
 
@@ -147,5 +169,6 @@ require `json-patch`.
   interpolated CLI argument such as `--description "$(cat file)"`; `cmd.exe` can truncate it.
   Pipe it instead: `cat file | ado-axi work-item update <id>` or
   `cat file | ado-axi api POST <path> --content-type <media-type>`.
-- Mutating commands (`create`, `update`, `comment`, `approve`, `pipeline run`) change real
-  state — only run them when the user asked for that change.
+- Mutating commands (`create`, `update`, `complete`, reviewer add/remove, ref create/delete,
+  `comment`, `approve`, `pipeline run`) change real state — only run them when the user asked.
+- Never use PR completion to bypass policy and never delete a ref whose exact target is ambiguous.

@@ -5,12 +5,19 @@ import { requireProject, type ResolvedProfile } from "../lib/config.js";
 import { profileFromArgs } from "../lib/context.js";
 import { countLine, htmlToText, personName, pickFields, shortDate, truncate } from "../lib/format.js";
 import { validateRepositoryPath } from "../lib/repositoryPath.js";
+import { readStdinIfPiped } from "../lib/stdin.js";
 
 const LIST_FLAGS = ["repo", "status", "creator", "reviewer", "target", "source", "limit"];
 const GET_FLAGS = ["repo", "threads", "commits", "id"];
 const CREATE_FLAGS = ["repo", "source", "target", "title", "description", "reviewers", "draft", "auto-complete", "work-items"];
 const APPROVE_FLAGS = ["repo", "vote"];
 const COMMENT_FLAGS = ["repo", "body", "thread", "file", "line"];
+const UPDATE_FLAGS = ["repo", "title", "description", "draft", "auto-complete"];
+const COMPLETE_FLAGS = ["repo", "squash", "delete-source-branch"];
+const CHECK_FLAGS = ["repo", "limit"];
+const DIFF_FLAGS = ["repo", "limit"];
+const REVIEWER_FLAGS = ["repo", "reviewer", "required"];
+const DEFAULT_SUMMARY_LIMIT = 20;
 
 const VOTES: Record<string, number> = {
   approve: 10,
@@ -39,7 +46,10 @@ interface PullRequest {
   sourceRefName?: string;
   targetRefName?: string;
   mergeStatus?: string;
-  repository?: { name?: string; project?: { name?: string } };
+  lastMergeSourceCommit?: { commitId?: string };
+  autoCompleteSetBy?: { id?: string; displayName?: string } | null;
+  completionOptions?: { mergeStrategy?: string; deleteSourceBranch?: boolean };
+  repository?: { id?: string; name?: string; project?: { id?: string; name?: string } };
   reviewers?: Reviewer[];
   _links?: { web?: { href?: string } };
 }
@@ -60,6 +70,19 @@ export async function prCommand(argv: string[]): Promise<Record<string, unknown>
       return getPr({ ...rest, flags: { ...rest.flags, threads: true } });
     case "create":
       return createPr(rest);
+    case "update":
+      return updatePr(rest);
+    case "complete":
+      return completePr(rest);
+    case "checks":
+      return checksPr(rest);
+    case "diff":
+    case "changes":
+      return diffPr(rest);
+    case "reviewers":
+      return reviewerPr({ ...rest, positionals: ["list", ...rest.positionals] });
+    case "reviewer":
+      return reviewerPr(rest);
     case "approve":
     case "vote":
       return votePr(rest);
@@ -67,7 +90,7 @@ export async function prCommand(argv: string[]): Promise<Record<string, unknown>
       return commentPr(rest);
     default:
       throw new AxiError(`unknown subcommand \`pr ${sub}\``, "VALIDATION_ERROR", [
-        "Subcommands: list | get | comments | create | approve | comment",
+        "Subcommands: list | get | comments | create | update | complete | checks | diff | reviewer | approve | comment",
         "`pr comments <id>` is an alias for `pr get <id> --threads`",
         "Run `ado-axi pr --help` for the full reference",
       ]);
@@ -359,6 +382,373 @@ async function createPr(args: ReturnType<typeof parseArgs>): Promise<Record<stri
       `Run \`ado-axi pr approve ${created.pullRequestId}\` to vote approve`,
     ],
   };
+}
+
+function booleanFlag(args: ReturnType<typeof parseArgs>, name: string): boolean | undefined {
+  const value = args.flags[name];
+  if (value === undefined) return undefined;
+  if (value === true || value === "true") return true;
+  if (value === "false") return false;
+  throw new AxiError(`--${name} expects true or false`, "VALIDATION_ERROR", [
+    `Use --${name} or --${name} true to enable it; use --${name} false to disable it`,
+  ]);
+}
+
+function prSummary(pr: PullRequest): Record<string, unknown> {
+  return {
+    id: pr.pullRequestId,
+    title: pr.title ?? "",
+    status: pr.isDraft ? "draft" : (pr.status ?? ""),
+    merge: pr.mergeStatus ?? "",
+    "auto-complete": Boolean(pr.autoCompleteSetBy),
+  };
+}
+
+async function updatePr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
+  assertKnownFlags(args, UPDATE_FLAGS, "pr update");
+  const profile = profileFromArgs(args);
+  const project = requireProject(profile, "pr update");
+  const id = requirePrId(args);
+  const pr = await fetchPr(profile, id, flagString(args, "repo"), project);
+  const requested: Record<string, unknown> = {};
+  const changed: string[] = [];
+
+  const title = flagString(args, "title");
+  if (title !== undefined && title !== pr.title) {
+    requested.title = title;
+    changed.push("title");
+  }
+  let description = flagString(args, "description");
+  if (description === undefined && title === undefined && args.flags.draft === undefined && args.flags["auto-complete"] === undefined) {
+    description = (await readStdinIfPiped())?.toString("utf8");
+  }
+  if (description !== undefined && description !== (pr.description ?? "")) {
+    requested.description = description;
+    changed.push("description");
+  }
+  const draft = booleanFlag(args, "draft");
+  if (draft !== undefined && draft !== Boolean(pr.isDraft)) {
+    requested.isDraft = draft;
+    changed.push("draft");
+  }
+  const autoComplete = booleanFlag(args, "auto-complete");
+  if (autoComplete !== undefined && autoComplete !== Boolean(pr.autoCompleteSetBy)) {
+    requested.autoCompleteSetBy = autoComplete ? { id: (await currentUser(profile)).id } : null;
+    changed.push("auto-complete");
+  }
+
+  if (changed.length === 0) {
+    const supplied = title !== undefined || description !== undefined || draft !== undefined || autoComplete !== undefined;
+    if (supplied) return { "pull-request": `#${id} already has the requested values (no-op)`, state: prSummary(pr) };
+    throw new AxiError("no changes requested", "VALIDATION_ERROR", [
+      `Usage: ado-axi pr update ${id} [--title "..."] [--description "..."] [--draft true|false] [--auto-complete true|false]`,
+      "Pipe a multiline description to stdin when --description is omitted",
+    ]);
+  }
+
+  const repo = pr.repository?.name ?? flagString(args, "repo");
+  if (!repo) {
+    throw new AxiError(`could not resolve the repository for pull request ${id}`, "NOT_FOUND", [
+      "Pass --repo <repo> explicitly",
+    ]);
+  }
+  const updated = await request<PullRequest>(profile, {
+    method: "PATCH",
+    path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}`,
+    project,
+    body: requested,
+  });
+  return { updated: { fields: changed.join(", "), ...prSummary(updated) } };
+}
+
+function completionError(error: unknown, id: number): never {
+  if (error instanceof AxiError && /conflict|merge conflict|rebase/i.test(error.message)) {
+    throw new AxiError(`pull request #${id} has merge conflicts`, "PR_CONFLICT", [
+      "Resolve the source/target branch conflicts and retry; policies were not bypassed",
+    ]);
+  }
+  if (error instanceof AxiError && /policy|policies|required reviewer|minimum number|permission.*complete/i.test(error.message)) {
+    throw new AxiError(`pull request #${id} is blocked by policy`, "POLICY_BLOCKED", [
+      `Run \`ado-axi pr checks ${id}\` for failed or pending requirements`,
+      "No policy bypass or force completion was attempted",
+    ]);
+  }
+  if (error instanceof AxiError && ["API_ERROR", "VALIDATION_ERROR", "CONFLICT", "PRECONDITION_FAILED"].includes(error.code)) {
+    throw new AxiError(`pull request #${id} completion failed: ${error.message}`, "PR_COMPLETION_FAILED", [
+      `Run \`ado-axi pr get ${id}\` and \`ado-axi pr checks ${id}\` before retrying`,
+      "No policy bypass or force completion was attempted",
+    ]);
+  }
+  throw error;
+}
+
+async function completePr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
+  assertKnownFlags(args, COMPLETE_FLAGS, "pr complete");
+  const profile = profileFromArgs(args);
+  const project = requireProject(profile, "pr complete");
+  const id = requirePrId(args);
+  const pr = await fetchPr(profile, id, flagString(args, "repo"), project);
+  if (pr.status === "completed") {
+    return { "pull-request": `#${id} is already completed (no-op)`, outcome: "completed" };
+  }
+  if (pr.status === "abandoned") {
+    throw new AxiError(`pull request #${id} is abandoned and cannot be completed`, "VALIDATION_ERROR", [
+      "Reactivate the pull request before attempting completion",
+    ]);
+  }
+  if (/conflict/i.test(pr.mergeStatus ?? "")) completionError(new AxiError("merge conflict", "API_ERROR"), id);
+  const repo = pr.repository?.name ?? flagString(args, "repo");
+  const commitId = pr.lastMergeSourceCommit?.commitId;
+  if (!repo || !commitId) {
+    throw new AxiError(`pull request #${id} lacks repository or source commit data`, "PRECONDITION_FAILED", [
+      "Re-read the pull request and retry; completion requires the current source version",
+    ]);
+  }
+  const squash = booleanFlag(args, "squash") ?? false;
+  const deleteSourceBranch = booleanFlag(args, "delete-source-branch") ?? false;
+  let completed: PullRequest;
+  try {
+    completed = await request<PullRequest>(profile, {
+      method: "PATCH",
+      path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}`,
+      project,
+      body: {
+        status: "completed",
+        lastMergeSourceCommit: { commitId },
+        completionOptions: {
+          mergeStrategy: squash ? "squash" : "noFastForward",
+          deleteSourceBranch,
+          bypassPolicy: false,
+        },
+      },
+    });
+  } catch (error) {
+    completionError(error, id);
+  }
+  const outcome = completed.status === "completed"
+    ? "completed"
+    : completed.autoCompleteSetBy || completed.mergeStatus === "queued"
+      ? "queued"
+      : /conflict/i.test(completed.mergeStatus ?? "")
+        ? "conflict"
+        : "failed";
+  if (outcome === "conflict") completionError(new AxiError("merge conflict", "API_ERROR"), id);
+  if (outcome === "failed") process.exitCode = 1;
+  const out: Record<string, unknown> = {
+    completion: {
+      id,
+      outcome,
+      status: completed.status ?? "",
+      merge: completed.mergeStatus ?? "",
+      strategy: squash ? "squash" : "no-fast-forward",
+      "source-branch": deleteSourceBranch ? "delete requested" : "preserved",
+    },
+  };
+  if (outcome === "queued") out.help = [`Run \`ado-axi pr checks ${id}\` to see what completion is waiting for`];
+  return out;
+}
+
+interface PolicyEvaluation {
+  status?: string;
+  configuration?: { type?: { displayName?: string }; settings?: { displayName?: string } };
+}
+
+interface PrStatus {
+  state?: string;
+  description?: string;
+  context?: { genre?: string; name?: string };
+  targetUrl?: string;
+}
+
+function checkResult(value: string | undefined): "passed" | "failed" | "pending" {
+  const state = (value ?? "").toLowerCase();
+  if (["approved", "succeeded", "success", "notapplicable"].includes(state)) return "passed";
+  if (["rejected", "broken", "failed", "failure", "error"].includes(state)) return "failed";
+  return "pending";
+}
+
+async function checksPr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
+  assertKnownFlags(args, CHECK_FLAGS, "pr checks");
+  const profile = profileFromArgs(args);
+  const project = requireProject(profile, "pr checks");
+  const id = requirePrId(args);
+  const pr = await fetchPr(profile, id, flagString(args, "repo"), project);
+  const repo = pr.repository?.name ?? flagString(args, "repo");
+  if (!repo) throw new AxiError(`could not resolve the repository for pull request ${id}`, "NOT_FOUND");
+  let projectId = pr.repository?.project?.id;
+  if (!projectId) {
+    const projectInfo = await request<{ id?: string }>(profile, { path: `_apis/projects/${encodeURIComponent(project)}` });
+    projectId = projectInfo.id;
+  }
+  const policies = projectId
+    ? await request<{ value?: PolicyEvaluation[] }>(profile, {
+        path: "_apis/policy/evaluations",
+        project,
+        apiVersion: "7.1-preview.1",
+        query: { artifactId: `vstfs:///CodeReview/CodeReviewId/${projectId}/${id}` },
+      })
+    : { value: [] };
+  const statuses = await request<{ value?: PrStatus[] }>(profile, {
+    path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/statuses`,
+    project,
+    apiVersion: "7.1-preview.1",
+  });
+  const checks = [
+    ...(policies.value ?? []).map((item) => ({
+      type: "policy",
+      name: item.configuration?.settings?.displayName ?? item.configuration?.type?.displayName ?? "policy",
+      result: checkResult(item.status),
+      status: item.status ?? "",
+      url: "",
+    })),
+    ...(statuses.value ?? []).map((item) => ({
+      type: item.context?.genre ?? "status",
+      name: item.context?.name ?? item.description ?? "status",
+      result: checkResult(item.state),
+      status: item.state ?? "",
+      url: item.targetUrl ?? "",
+    })),
+  ];
+  if (checks.length === 0) {
+    return { checks: `0 checks registered for pull request #${id}`, passed: 0, failed: 0, pending: 0 };
+  }
+  const passed = checks.filter((item) => item.result === "passed").length;
+  const failed = checks.filter((item) => item.result === "failed").length;
+  const pending = checks.filter((item) => item.result === "pending").length;
+  const actionable = checks.filter((item) => item.result !== "passed");
+  const requestedLimit = flagNumber(args, "limit");
+  if (requestedLimit !== undefined && requestedLimit < 1) {
+    throw new AxiError("--limit must be at least 1", "VALIDATION_ERROR");
+  }
+  const limit = flagBool(args, "full") ? actionable.length : (requestedLimit ?? 10);
+  const out: Record<string, unknown> = {
+    "pull-request": id,
+    total: checks.length,
+    passed,
+    failed,
+    pending,
+    outcome: failed > 0 ? "blocked" : pending > 0 ? "pending" : "ready",
+    actionable: actionable.length === 0 ? "0 failed or pending checks" : actionable.slice(0, limit),
+  };
+  if (actionable.length > limit) {
+    out.help = [`Showing ${limit} of ${actionable.length} actionable checks; run \`ado-axi pr checks ${id} --full\` for all`];
+  }
+  return out;
+}
+
+interface PrChange {
+  changeTrackingId?: number;
+  changeType?: string;
+  item?: { path?: string; originalPath?: string; objectId?: string };
+}
+
+async function diffPr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
+  assertKnownFlags(args, DIFF_FLAGS, "pr diff");
+  const profile = profileFromArgs(args);
+  const project = requireProject(profile, "pr diff");
+  const id = requirePrId(args);
+  const pr = await fetchPr(profile, id, flagString(args, "repo"), project);
+  const repo = pr.repository?.name ?? flagString(args, "repo");
+  if (!repo) throw new AxiError(`could not resolve the repository for pull request ${id}`, "NOT_FOUND");
+  const iterations = await request<{ value?: Array<{ id?: number }> }>(profile, {
+    path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/iterations`,
+    project,
+  });
+  const iteration = Math.max(...(iterations.value ?? []).map((item) => item.id ?? 0));
+  if (!Number.isFinite(iteration) || iteration < 1) return { changes: `0 changed paths found for pull request #${id}` };
+  const full = flagBool(args, "full");
+  const limit = full ? Number.MAX_SAFE_INTEGER : (flagNumber(args, "limit") ?? DEFAULT_SUMMARY_LIMIT);
+  if (limit < 1) throw new AxiError("--limit must be at least 1", "VALIDATION_ERROR");
+  const entries: PrChange[] = [];
+  let skip = 0;
+  let nextSkip: number | undefined;
+  let total: number | undefined;
+  do {
+    const top = full ? 1000 : limit + 1;
+    const page = await request<{ changeEntries?: PrChange[]; count?: number; nextSkip?: number; nextTop?: number }>(profile, {
+      path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/iterations/${iteration}/changes`,
+      project,
+      query: { $top: top, $skip: skip },
+    });
+    entries.push(...(page.changeEntries ?? []));
+    total = page.count ?? total;
+    nextSkip = page.nextSkip;
+    if (!full || nextSkip === undefined || (page.changeEntries ?? []).length === 0) break;
+    skip = nextSkip;
+  } while (true);
+  const shown = full ? entries : entries.slice(0, limit);
+  if (shown.length === 0) return { changes: `0 changed paths found for pull request #${id}` };
+  const truncated = !full && (entries.length > limit || nextSkip !== undefined || (total ?? 0) > limit);
+  const out: Record<string, unknown> = {
+    "pull-request": id,
+    iteration,
+    count: total !== undefined ? countLine(shown.length, total, "changed paths") : `${shown.length}${truncated ? "+" : ""} changed paths`,
+    changes: shown.map((entry) => ({
+      path: entry.item?.path ?? "",
+      change: entry.changeType ?? "",
+      from: entry.item?.originalPath ?? "",
+      object: (entry.item?.objectId ?? "").slice(0, 12),
+    })),
+  };
+  if (truncated) out.help = [`Result truncated; run \`ado-axi pr diff ${id} --full\` or increase --limit`];
+  return out;
+}
+
+async function reviewerPr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
+  const operation = args.positionals[0] ?? "list";
+  const nested = { ...args, positionals: args.positionals.slice(1) };
+  assertKnownFlags(nested, REVIEWER_FLAGS, `pr reviewer ${operation}`);
+  if (!["list", "add", "remove"].includes(operation)) {
+    throw new AxiError(`unknown reviewer operation '${operation}'`, "VALIDATION_ERROR", [
+      "Usage: ado-axi pr reviewer list|add|remove <id> [--reviewer <identity>]",
+    ]);
+  }
+  const profile = profileFromArgs(nested);
+  const project = requireProject(profile, `pr reviewer ${operation}`);
+  const id = requirePrId(nested);
+  const pr = await fetchPr(profile, id, flagString(nested, "repo"), project);
+  const repo = pr.repository?.name ?? flagString(nested, "repo");
+  if (!repo) throw new AxiError(`could not resolve the repository for pull request ${id}`, "NOT_FOUND");
+  if (operation === "list") {
+    const response = await request<{ value?: Reviewer[] }>(profile, {
+      path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/reviewers`,
+      project,
+    });
+    const reviewers = response.value ?? [];
+    return reviewers.length === 0
+      ? { reviewers: `0 reviewers on pull request #${id}` }
+      : {
+          "pull-request": id,
+          count: reviewers.length,
+          reviewers: reviewers.map((reviewer) => ({
+            id: reviewer.id ?? "",
+            name: reviewer.displayName ?? "",
+            vote: voteLabel(reviewer.vote),
+            required: Boolean(reviewer.isRequired),
+          })),
+        };
+  }
+  const identity = flagString(nested, "reviewer");
+  if (!identity) throw new AxiError("--reviewer <identity> is required", "VALIDATION_ERROR");
+  const reviewerId = await resolveIdentityId(profile, identity);
+  const existing = (pr.reviewers ?? []).find((reviewer) => reviewer.id?.toLowerCase() === reviewerId.toLowerCase());
+  if (operation === "add") {
+    if (existing) return { reviewer: `${identity} is already a reviewer on #${id} (no-op)` };
+    await request(profile, {
+      method: "PUT",
+      path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/reviewers/${reviewerId}`,
+      project,
+      body: { vote: 0, isRequired: booleanFlag(nested, "required") ?? false },
+    });
+    return { reviewer: { "pull-request": id, id: reviewerId, added: true } };
+  }
+  if (!existing) return { reviewer: `${identity} is not a reviewer on #${id} (no-op)` };
+  await request(profile, {
+    method: "DELETE",
+    path: `_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/reviewers/${reviewerId}`,
+    project,
+  });
+  return { reviewer: { "pull-request": id, id: reviewerId, removed: true } };
 }
 
 async function votePr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
