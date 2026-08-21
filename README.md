@@ -105,7 +105,12 @@ truncate long content and support `--full`. For `api`, piped stdin is used as th
 when `--body` is omitted; `work-item update` and `pr update` likewise accept a multiline description
 through piped stdin.
 
-### Safe PR and ref mutations
+### Safe mutations and concurrency
+
+`work-item update` is idempotent and reports unchanged requests as no-ops. Pass `--if-rev <n>` to
+require a compare-and-swap against a revision read from `work-item get`; stale updates fail instead
+of overwriting newer changes. `--add-tags` and `--remove-tags` mutate tags in place, preserving
+unrelated tags.
 
 `pr update` reads current state and reports unchanged requests as no-ops. `pr complete` includes the
 current source commit, never bypasses policy, reports an already completed PR as a no-op, and
@@ -116,6 +121,8 @@ policy evaluations and PR statuses; `pr diff` returns changed paths rather than 
 existing branch. `ref delete` first resolves the exact branch and sends its current object ID as
 Azure DevOps' concurrency guard. Add `--old-object-id <40-hex>` when the caller must assert a
 previously observed version. Existing-at-the-intended-object and already-absent requests are no-ops.
+
+### Pipeline watching
 
 `pipeline watch` polls every 10 seconds by default (minimum 2), stops after 1800 seconds by default,
 and accepts `--interval`/`--timeout` in seconds. Failed, cancelled, timed-out, and unexpected runs
