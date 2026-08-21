@@ -1,6 +1,7 @@
 ---
 name: ado-axi
 description: Use ado-axi to work with Azure DevOps — work items, pull requests, pipelines, repositories, and raw REST calls — through token-efficient TOON output. Use when the task involves Azure DevOps, ADO, boards, work items, WIQL, pull requests, code reviews, build pipelines, or Azure Repos.
+user-invocable: false
 ---
 
 # ado-axi

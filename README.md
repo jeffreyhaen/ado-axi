@@ -36,6 +36,16 @@ ado-axi --help
 
 The `prepare` script builds `dist/` on install, so no build step is needed.
 
+## Agent integration
+
+Install the skill globally so an agent loads the usage guide on demand:
+
+```sh
+npx skills add jeffreyhaen/ado-axi --skill ado-axi -g
+```
+
+Omit `-g` to install the skill for the current project only.
+
 ## Configure
 
 Profiles live in `~/.ado-axi/config.json` (override with `./ado-axi.config.json` or
@@ -110,17 +120,6 @@ previously observed version. Existing-at-the-intended-object and already-absent 
 `pipeline watch` polls every 10 seconds by default (minimum 2), stops after 1800 seconds by default,
 and accepts `--interval`/`--timeout` in seconds. Failed, cancelled, timed-out, and unexpected runs
 produce structured output and exit non-zero; successful and partially successful runs exit zero.
-
-## Agent integration
-
-Install the skill so an agent loads the usage guide on demand:
-
-```sh
-npx skills add jeffreyhaen/ado-axi
-```
-
-For [pi](https://github.com/earendil-works/pi-coding-agent), copy `SKILL.md` to
-`~/.pi/agent/skills/ado-axi/SKILL.md`.
 
 ## Design
 
