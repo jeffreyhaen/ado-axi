@@ -4,15 +4,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { encode } from "@toon-format/toon";
 import { AxiError, runAxiCli } from "axi-sdk-js";
-import { apiCommand } from "../commands/api.js";
-import { configCommand } from "../commands/config.js";
-import { doctorCommand } from "../commands/doctor.js";
-import { homeCommand } from "../commands/home.js";
-import { pipelineCommand } from "../commands/pipeline.js";
-import { prCommand } from "../commands/pr.js";
-import { projectCommand, repoCommand } from "../commands/repo.js";
-import { refCommand } from "../commands/ref.js";
-import { workItemCommand } from "../commands/workItem.js";
 import { normalizeArgv } from "../lib/argv.js";
 import { COMMAND_HELP, DESCRIPTION, TOP_LEVEL_HELP } from "../help.js";
 
@@ -81,6 +72,46 @@ function unknownCommand(command: string): string {
   })}\n`;
 }
 
+async function apiHandler(args: string[]) {
+  return (await import("../commands/api.js")).apiCommand(args);
+}
+
+async function configHandler(args: string[]) {
+  return (await import("../commands/config.js")).configCommand(args);
+}
+
+async function doctorHandler(args: string[]) {
+  return (await import("../commands/doctor.js")).doctorCommand(args);
+}
+
+async function homeHandler(args: string[]) {
+  return (await import("../commands/home.js")).homeCommand(args);
+}
+
+async function pipelineHandler(args: string[]) {
+  return (await import("../commands/pipeline.js")).pipelineCommand(args);
+}
+
+async function prHandler(args: string[]) {
+  return (await import("../commands/pr.js")).prCommand(args);
+}
+
+async function projectHandler(args: string[]) {
+  return (await import("../commands/repo.js")).projectCommand(args);
+}
+
+async function repoHandler(args: string[]) {
+  return (await import("../commands/repo.js")).repoCommand(args);
+}
+
+async function refHandler(args: string[]) {
+  return (await import("../commands/ref.js")).refCommand(args);
+}
+
+async function workItemHandler(args: string[]) {
+  return (await import("../commands/workItem.js")).workItemCommand(args);
+}
+
 const normalized = normalizeArgv(process.argv.slice(2));
 const first = normalized[0];
 if (
@@ -100,25 +131,25 @@ await runAxiCli({
   getCommandHelp: (command) => COMMAND_HELP[aliases[command] ?? command] ?? null,
   renderUnknownCommand: unknownCommand,
   formatError,
-  home: (args) => homeCommand(args),
+  home: homeHandler,
   commands: {
-    home: (args) => homeCommand(args),
-    "work-item": (args) => workItemCommand(args),
-    wi: (args) => workItemCommand(args),
-    workitem: (args) => workItemCommand(args),
-    "work-items": (args) => workItemCommand(args),
-    pr: (args) => prCommand(args),
-    prs: (args) => prCommand(args),
-    pipeline: (args) => pipelineCommand(args),
-    pipelines: (args) => pipelineCommand(args),
-    repo: (args) => repoCommand(args),
-    repos: (args) => repoCommand(args),
-    ref: (args) => refCommand(args),
-    refs: (args) => refCommand(args),
-    project: (args) => projectCommand(args),
-    projects: (args) => projectCommand(args),
-    api: (args) => apiCommand(args),
-    doctor: (args) => doctorCommand(args),
-    config: (args) => configCommand(args),
+    home: homeHandler,
+    "work-item": workItemHandler,
+    wi: workItemHandler,
+    workitem: workItemHandler,
+    "work-items": workItemHandler,
+    pr: prHandler,
+    prs: prHandler,
+    pipeline: pipelineHandler,
+    pipelines: pipelineHandler,
+    repo: repoHandler,
+    repos: repoHandler,
+    ref: refHandler,
+    refs: refHandler,
+    project: projectHandler,
+    projects: projectHandler,
+    api: apiHandler,
+    doctor: doctorHandler,
+    config: configHandler,
   },
 });
