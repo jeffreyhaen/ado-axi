@@ -4,6 +4,10 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
 
+<p align="center">
+  <img src="assets/ado-axi-header.png" alt="ado-axi for Azure DevOps">
+</p>
+
 Agent-ergonomic CLI for **Azure DevOps** — work items, pull requests, Git refs, pipelines,
 and a raw REST escape hatch, in token-efficient [TOON](https://toonformat.dev/) output.
 
