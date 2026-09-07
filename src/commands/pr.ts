@@ -53,7 +53,7 @@ interface PullRequest {
   lastMergeSourceCommit?: { commitId?: string };
   autoCompleteSetBy?: { id?: string; displayName?: string } | null;
   completionOptions?: { mergeStrategy?: string; deleteSourceBranch?: boolean };
-  repository?: { id?: string; name?: string; project?: { id?: string; name?: string } };
+  repository?: { id?: string; name?: string; webUrl?: string; project?: { id?: string; name?: string } };
   reviewers?: Reviewer[];
   url?: string;
   _links?: { web?: { href?: string } };
@@ -112,6 +112,22 @@ function refName(ref: string | undefined): string {
 
 function fullRef(value: string): string {
   return value.startsWith("refs/") ? value : `refs/heads/${value}`;
+}
+
+// Azure DevOps does not return a browsable link on pull-request responses:
+// `_links` carries only `_apis` hrefs and `url` is the GUID REST endpoint.
+// Derive the web URL from the repository instead, preferring `_links.web.href`
+// in case a future API version starts supplying it.
+function prWebUrl(pr: PullRequest, profile: ResolvedProfile, project: string, repo: string | undefined): string {
+  const direct = pr._links?.web?.href;
+  if (direct) return direct;
+  const base = pr.repository?.webUrl;
+  if (base) return `${base}/pullrequest/${pr.pullRequestId}`;
+  const repoName = pr.repository?.name ?? repo;
+  if (!repoName) return "";
+  const org = encodeURIComponent(profile.org);
+  const projectName = pr.repository?.project?.name ?? project;
+  return `https://dev.azure.com/${org}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
 }
 
 function voteLabel(vote: number | undefined): string {
@@ -257,7 +273,7 @@ async function getPr(args: ReturnType<typeof parseArgs>): Promise<Record<string,
       merge: pr.mergeStatus ?? "",
       reviews: reviewSummary(pr.reviewers),
       created: shortDate(pr.creationDate),
-      url: pr.url ?? pr._links?.web?.href ?? "",
+      url: prWebUrl(pr, profile, project, flagString(args, "repo")),
       description: body.text,
     },
     reviewers: (pr.reviewers ?? []).map((r) => ({
@@ -398,7 +414,7 @@ async function createPr(args: ReturnType<typeof parseArgs>): Promise<Record<stri
       source: refName(created.sourceRefName),
       target: refName(created.targetRefName),
       status: created.isDraft ? "draft" : (created.status ?? ""),
-      url: created.url ?? created._links?.web?.href ?? "",
+      url: prWebUrl(created, profile, project, repo),
     },
     help: [
       `Run \`ado-axi pr get ${created.pullRequestId}\` to view it`,

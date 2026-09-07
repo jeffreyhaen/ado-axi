@@ -12,6 +12,9 @@ All notable changes to ado-axi are documented here. This project follows
 ### Fixed
 
 - `pr --help` now lists `thread` in its subcommand line
+- `pr get` and `pr create` now return the browsable pull request URL.
+  Azure DevOps populates neither `_links.web.href` nor a web-facing `url` on pull request responses, so `url` was reporting the GUID-based `_apis` REST endpoint, which serves JSON rather than opening the pull request.
+  The link is now derived from the repository's `webUrl`, falling back to the canonical `org/project/_git/repo/pullrequest/<id>` form.
 
 ## [0.4.0] - 2026-08-30
 
