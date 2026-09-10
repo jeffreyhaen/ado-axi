@@ -24,7 +24,7 @@ const UPDATE_FLAGS = [
   "reason",
   "if-rev",
 ];
-const COMMENT_FLAGS = ["body"];
+const COMMENT_FLAGS = ["body", "format"];
 const LINK_LIST_FLAGS = ["limit"];
 const LINK_ADD_FLAGS = ["parent", "child", "related", "pr", "commit", "branch", "repo", "comment", "if-rev"];
 
@@ -345,6 +345,21 @@ function descriptionFormat(args: ReturnType<typeof parseArgs>, description: stri
   ]);
 }
 
+function commentFormat(args: ReturnType<typeof parseArgs>): "markdown" | "html" {
+  const raw = args.flags.format;
+  if (raw === undefined) return "markdown";
+  if (typeof raw !== "string") {
+    throw new AxiError("--format must be markdown or html", "VALIDATION_ERROR", [
+      "Use `--format markdown` for Markdown or `--format html` for HTML",
+    ]);
+  }
+  const value = raw.toLowerCase();
+  if (value === "markdown" || value === "html") return value;
+  throw new AxiError("--format must be markdown or html", "VALIDATION_ERROR", [
+    "Use `--format markdown` for Markdown or `--format html` for HTML",
+  ]);
+}
+
 async function createWorkItem(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
   assertKnownFlags(args, CREATE_FLAGS, "work-item create");
   const profile = profileFromArgs(args);
@@ -577,18 +592,20 @@ async function commentWorkItem(args: ReturnType<typeof parseArgs>): Promise<Reco
   assertKnownFlags(args, COMMENT_FLAGS, "work-item comment");
   const profile = profileFromArgs(args);
   const project = requireProject(profile, "work-item comment");
-  const id = requireId(args, 'work-item comment <id> --body "..."');
+  const id = requireId(args, 'work-item comment <id> --body "..." [--format markdown|html]');
   const body = flagString(args, "body") ?? args.positionals[1];
   if (!body) {
     throw new AxiError("--body is required", "VALIDATION_ERROR", [
-      `Usage: ado-axi work-item comment ${id} --body "..."`,
+      `Usage: ado-axi work-item comment ${id} --body "..." [--format markdown|html]`,
     ]);
   }
+  const format = commentFormat(args);
 
   const created = await request<{ id?: number }>(profile, {
     method: "POST",
     path: `_apis/wit/workItems/${id}/comments`,
     project,
+    query: { format },
     body: { text: body },
     apiVersion: "7.1-preview.4",
   });

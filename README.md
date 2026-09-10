@@ -83,6 +83,7 @@ ado-axi doctor
 ado-axi                                   # dashboard: your work items, active PRs, recent runs
 ado-axi work-item list --assigned-to @me  # open work items
 ado-axi work-item get 4211 --comments
+ado-axi work-item comment 4211 --body "**Status:** ready"
 ado-axi work-item update 4211 --state "In Progress"
 ado-axi work-item update 4211 --add-tags agent-claimed --if-rev 7   # compare-and-swap claim
 ado-axi work-item link add 4211 --pr 812                            # attach the pull request
@@ -128,6 +129,7 @@ cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=paylo
   hatch, and `repo file` refuses folders and binaries.
 - **Piped input.** `api` sends piped stdin as the raw request body when `--body` is omitted;
   `work-item update`, `pr update`, and `pr thread reply` read multiline content the same way.
+- **Markdown comments.** Work item comments use Markdown by default; pass `--format html` only for raw HTML.
 - **Exit codes.** 0 success (including no-ops), 1 runtime error, 2 usage error. `pipeline watch`
   exits non-zero on failed, cancelled, timed-out, and unexpected runs (poll interval and timeout in
   seconds, 10s/1800s by default).

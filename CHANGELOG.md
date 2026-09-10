@@ -5,6 +5,10 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+### Changed
+
+- `work-item comment` stores comments as Markdown by default and accepts `--format html` for raw HTML; it uses the `7.1-preview.4` comments API required for format selection
+
 ## [0.4.1] - 2026-09-07
 
 ### Changed

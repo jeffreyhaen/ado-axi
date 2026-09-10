@@ -51,7 +51,7 @@ ado-axi work-item update <id> [--state <state>] [--title "..."] [--assigned-to <
                               [--description "..."] [--description-format markdown|html]
                               [--add-tags a,b] [--remove-tags c] [--if-rev <n>]
                               [--set '{"Microsoft.VSTS.Common.Priority": 1}']
-ado-axi work-item comment <id> --body "..."
+ado-axi work-item comment <id> --body "..." [--format markdown|html]
 ado-axi work-item link list <id> [--limit 50]
 ado-axi work-item link add <id> (--parent <id> | --child <id> | --related <id> | --pr <id>
                                  | --commit <40-hex> --repo <name> | --branch <name> --repo <name>)
@@ -64,6 +64,7 @@ the pull request id, not a URL — and treats an already-present link as a no-op
 
 `list` builds WIQL for you; drop to `--query` for anything the flags do not express.
 `--description-format markdown` renders a Markdown description; use `html` only when supplying HTML. The format is only applied when a description is supplied.
+`work-item comment` stores comments as Markdown by default; use `--format html` only when supplying raw HTML. The comments API requires `7.1-preview.4` or later for this format selection.
 `update` is idempotent — setting a field to its current value reports a no-op and exits 0.
 
 ### Safe concurrent updates
