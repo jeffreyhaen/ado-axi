@@ -1,6 +1,6 @@
 {
   "name": "@jeffreyhaen/ado-axi",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Agent-ergonomic CLI for Azure DevOps — work items, pull requests, and pipelines through token-efficient TOON output. An AXI (Agent eXperience Interface) over the Azure DevOps REST API.",
   "keywords": [
     "azure-devops",

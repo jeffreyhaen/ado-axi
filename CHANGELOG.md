@@ -5,6 +5,8 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-10
+
 ### Changed
 
 - `work-item comment` stores comments as Markdown by default and accepts `--format html` for raw HTML; it uses the `7.1-preview.4` comments API required for format selection
@@ -121,7 +123,8 @@ Initial public release.
 - Idempotent mutations: setting a work item field or a pull request vote to its current value reports a no-op and exits 0
 - `SKILL.md` in the repo root for on-demand agent discovery
 
-[Unreleased]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jeffreyhaen/ado-axi/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/jeffreyhaen/ado-axi/compare/v0.3.1...v0.3.2
