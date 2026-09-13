@@ -159,6 +159,22 @@ pnpm test
 - [AXI — agent eXperience interface](https://axi.md/) · [kunchenguid/axi](https://github.com/kunchenguid/axi)
 - [TOON — token-optimized object notation](https://toonformat.dev/) · [toonformat/toon](https://github.com/toonformat/toon)
 
+## Releasing
+
+1. Move the `Unreleased` section in `CHANGELOG.md` under `## [x.y.z] - <date>`.
+2. Bump `version` in `package.json`.
+3. Commit as `chore: release vX.Y.Z`, then tag and push:
+
+```sh
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push --follow-tags
+```
+
+Pushing the tag runs `.github/workflows/publish.yml`: it builds, tests, publishes to
+npm, and creates the GitHub release with the matching `CHANGELOG.md` section as its body
+(`scripts/release-notes.mjs`). An existing release is left as is, so the workflow can be
+re-run safely.
+
 ## License
 
 MIT
