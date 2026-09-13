@@ -156,9 +156,6 @@ pnpm run build
 pnpm test
 ```
 
-- [AXI — agent eXperience interface](https://axi.md/) · [kunchenguid/axi](https://github.com/kunchenguid/axi)
-- [TOON — token-optimized object notation](https://toonformat.dev/) · [toonformat/toon](https://github.com/toonformat/toon)
-
 ## Releasing
 
 1. Move the `Unreleased` section in `CHANGELOG.md` under `## [x.y.z] - <date>`.
@@ -180,3 +177,8 @@ re-run safely.
 MIT
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
+## See also
+
+- [AXI — agent eXperience interface](https://axi.md/) · [kunchenguid/axi](https://github.com/kunchenguid/axi)
+- [TOON — token-optimized object notation](https://toonformat.dev/) · [toonformat/toon](https://github.com/toonformat/toon)
