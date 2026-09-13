@@ -18,22 +18,15 @@ directly (no `az` round trips except for token acquisition), supports multiple o
 with different authentication through profiles, and answers with minimal schemas plus
 contextual next-step hints.
 
-## Why AXI: Comparing Interfaces for Agents
+## Why AXI: CLI vs MCP vs AXI
 
-AI agents interact with Azure DevOps through three main paradigms: raw human-oriented CLIs, MCP servers, or agent-first CLIs ([AXI](https://axi.md/)). Across extensive [AXI benchmark studies](https://axi.md/) (over 900 evaluation runs), principled agent CLIs consistently achieve higher task success at a fraction of the token cost:
+Across extensive [AXI benchmark studies](https://axi.md/) (over 900 runs), agent-first CLIs achieve **100% task success** at **~50% fewer turns** and **50–66% lower cost** than MCP:
 
-| Interface | Context Overhead (Turn 0) | Output Format | Measured Payload (Benchmark) | Mutation Safety | Workflow Guidance |
+| Interface | Context (Turn 0) | Output | Measured Payload | Write Safety | Guidance |
 |---|---|---|---|---|---|
-| **`ado-axi` (Skill + CLI)** | **~55 tokens** (on-demand) | **TOON** (compact tables) | **-90.8% average payload reduction** across PRs, work items, pipelines, and branches | ✅ **Dry-run by default**; `--execute` / `--confirm` gates | Structured `{ error, code, help[] }` suggestions |
-| **Raw CLI** (`az devops` / `az`) | ~0 tokens | Verbose JSON / ASCII tables | Baseline (huge REST payloads, e.g. 11.6k chars for 10 PRs, slow startup) | ❌ Direct mutations without dry-run safety gates | Human-oriented `--help` and exit codes |
-| **Azure DevOps MCP Server** | **~12,000–20,000 tokens** (34–49 eager tool schemas) | JSON-RPC | Highest overhead (full schemas resent every turn) | Varies by server implementation | Tool schema validation errors |
-
-### Why this matters
-
-- **Zero context bloat**: The official Azure DevOps MCP server exposes ~90 tool schemas that flood the agent's context window (~25k–35k tokens) on *every single request* before any task starts. A skill-based AXI costs just ~55 tokens until loaded on demand.
-- **Direct REST speed & minimal payloads**: `ado-axi` connects directly to the Azure DevOps REST API (eliminating the heavy Python startup overhead of `az devops`), discards API boilerplate, and renders results as [TOON](https://toonformat.dev/) for ~40% token savings over raw JSON.
-- **Accidental mutation prevention**: Operations like completing PRs, deleting branches, or updating work items default to safe previews and require explicit `--execute`. Destructive changes are double-gated with `--execute --confirm <id>`.
-- **Pre-computed summaries & multi-org profiles**: Pre-computed aggregations (such as PR status check rollups: `pass`, `fail`, `skip`, `pending`) eliminate multi-turn status polling. First-class profile management (`--profile`) provides seamless cross-tenant / cross-organization switching without re-authenticating. In AXI benchmarks, AXI CLIs reduce turns by ~50% and overall task cost by up to 66% compared to MCP.
+| **`ado-axi`** | **~55 tokens** (on-demand) | **TOON** | **-90.8% avg** across PRs, items, runs, branches | ✅ **Dry-run by default**; `--execute` / `--confirm` | Structured hints (`help[]`) |
+| **Raw CLI** (`az devops`) | ~0 tokens | JSON / ASCII | Baseline (huge REST payloads, slow startup) | ❌ Direct mutations | Human text / exit codes |
+| **Azure DevOps MCP** | ~12k–20k tokens (34–49 schemas) | JSON-RPC | Highest overhead (full schemas resent every turn) | Varies | Schema validation errors |
 
 ## Install
 
