@@ -167,7 +167,7 @@ git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push --follow-tags
 ```
 
-Pushing the tag runs `.github/workflows/publish.yml`: it builds, tests, publishes to
+Pushing the tag runs `.github/workflows/release.yml`: it builds, tests, publishes to
 npm, and creates the GitHub release with the matching `CHANGELOG.md` section as its body
 (`scripts/release-notes.mjs`). An existing release is left as is, so the workflow can be
 re-run safely.
