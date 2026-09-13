@@ -156,7 +156,7 @@ pnpm run build
 pnpm test
 ```
 
-## Releasing
+### Releasing
 
 1. Move the `Unreleased` section in `CHANGELOG.md` under `## [x.y.z] - <date>`.
 2. Bump `version` in `package.json`.
