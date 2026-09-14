@@ -51,7 +51,7 @@ ado-axi work-item update <id> [--state <state>] [--title "..."] [--assigned-to <
                               [--description "..."] [--description-format markdown|html]
                               [--add-tags a,b] [--remove-tags c] [--if-rev <n>]
                               [--set '{"Microsoft.VSTS.Common.Priority": 1}']
-ado-axi work-item comment <id> --body "..." [--format markdown|html]
+ado-axi work-item comment <id> [--body "..."] [--format markdown|html]
 ado-axi work-item link list <id> [--limit 50]
 ado-axi work-item link add <id> (--parent <id> | --child <id> | --related <id> | --pr <id>
                                  | --commit <40-hex> --repo <name> | --branch <name> --repo <name>)
@@ -101,19 +101,35 @@ ado-axi pr diff <id> [--limit 20] [--full]
 ado-axi pr reviewer list <id>
 ado-axi pr reviewer add|remove <id> --reviewer <identity> [--required]
 ado-axi pr approve <id> [--vote approve|approve-with-suggestions|wait-for-author|reject|reset]
-ado-axi pr comment <id> --body "..." [--file <path> --line <n>] [--thread <id>]
+ado-axi pr comment <id> [--body "..."] [--file <path> --line <n>] [--thread <id>]
 ado-axi pr thread list <id> [--limit 20] [--full]
-ado-axi pr thread reply <id> --thread <n> --body "..." [--resolve]
+ado-axi pr thread reply <id> --thread <n> [--body "..."] [--resolve]
 ado-axi pr thread resolve|reopen <id> --thread <n> [--status active|fixed|wont-fix|closed|by-design|pending]
 ```
 
 Finish review feedback with `pr thread`: `list` gives thread ids plus an `unresolved` count,
 `reply --resolve` answers and closes a thread in one call, and `resolve`/`reopen` report an
-already-set status as a no-op. A multiline reply may be piped to `pr thread reply`.
+already-set status as a no-op.
+
+### Safe shell input
+
+For Markdown or multiline comment content, pipe a quoted heredoc to stdin for
+`work-item comment`, `pr comment`, and `pr thread reply`; omit `--body`:
+
+```sh
+ado-axi pr thread reply 812 --thread 5 --resolve <<'EOF'
+Fixed in `3f2a1c9`: `$value` is now validated.
+EOF
+```
+
+Never double-quote a flag value containing backticks, `$`, `!`, or quotes. Git Bash expands these
+before `ado-axi` starts, so the CLI receives valid but mangled input and cannot detect it. The
+same applies to `--title`, `--description`, `--set`, `--variables`, `--parameters`, and `--query`:
+use stdin where the command supports it, or pipe a complete JSON payload to `ado-axi api`.
 
 `pr list` shows a review tally (`2/3 approved`) so no follow-up call is needed to judge status.
-`pr update` and reviewer mutations report safely detected retries as no-ops. A description may be
-piped to `pr update`. `pr complete` uses the current source commit, never bypasses policy, and treats
+Work-item and PR descriptions may be piped when `--description` is omitted. `pr update` and reviewer
+mutations report safely detected retries as no-ops. `pr complete` uses the current source commit, never bypasses policy, and treats
 an already completed PR as a no-op. `pr abandon` treats an already abandoned PR as a no-op. Run `pr checks` before completion to see concise policy/status
 counts; use `--full` only when the bounded actionable list is insufficient.
 

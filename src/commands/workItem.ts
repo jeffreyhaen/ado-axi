@@ -373,7 +373,7 @@ async function createWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
   }
 
   const ops: Array<Record<string, unknown>> = [patch("add", "/fields/System.Title", title)];
-  const description = flagString(args, "description");
+  const description = flagString(args, "description") ?? (await readStdinIfPiped())?.toString("utf8");
   if (description !== undefined) {
     ops.push(patch("add", "/fields/System.Description", description));
     const format = descriptionFormat(args, description);
@@ -593,10 +593,11 @@ async function commentWorkItem(args: ReturnType<typeof parseArgs>): Promise<Reco
   const profile = profileFromArgs(args);
   const project = requireProject(profile, "work-item comment");
   const id = requireId(args, 'work-item comment <id> --body "..." [--format markdown|html]');
-  const body = flagString(args, "body") ?? args.positionals[1];
+  const body = flagString(args, "body") ?? (await readStdinIfPiped())?.toString("utf8") ?? args.positionals[1];
   if (!body) {
     throw new AxiError("--body is required", "VALIDATION_ERROR", [
       `Usage: ado-axi work-item comment ${id} --body "..." [--format markdown|html]`,
+      "Pipe the comment to stdin when omitting --body",
     ]);
   }
   const format = commentFormat(args);

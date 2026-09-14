@@ -5,6 +5,12 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-09-14
+
+### Changed
+
+- Work-item and pull-request descriptions plus all three comment commands now accept piped stdin when their content flag is omitted, enabling shell-safe Markdown and multiline content
+
 ### Documentation & Infrastructure
 
 - Run the workflows on `actions/checkout@v6`, `actions/setup-node@v6` and
@@ -129,7 +135,8 @@ Initial public release.
 - Idempotent mutations: setting a work item field or a pull request vote to its current value reports a no-op and exits 0
 - `SKILL.md` in the repo root for on-demand agent discovery
 
-[Unreleased]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/jeffreyhaen/ado-axi/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jeffreyhaen/ado-axi/compare/v0.3.2...v0.4.0

@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/lib/client.js", () => ({ request: vi.fn() }));
+vi.mock("../src/lib/stdin.js", () => ({ readStdinIfPiped: vi.fn(async () => undefined) }));
 
 import { prCommand } from "../src/commands/pr.js";
 import { request } from "../src/lib/client.js";
+import { readStdinIfPiped } from "../src/lib/stdin.js";
 
 const mockRequest = vi.mocked(request);
+const mockStdin = vi.mocked(readStdinIfPiped);
 const context = ["--org", "test-org", "--project", "Project"];
 
-beforeEach(() => mockRequest.mockReset());
+beforeEach(() => {
+  mockRequest.mockReset();
+  mockStdin.mockReset();
+  mockStdin.mockResolvedValue(undefined);
+});
 
 describe("pr list", () => {
   it("filters draft pull requests after querying active ones", async () => {
@@ -133,5 +140,21 @@ describe("pr URLs", () => {
     expect(result.created).toMatchObject({
       url: "https://dev.azure.com/test-org/Project/_git/Repo/pullrequest/42",
     });
+  });
+
+  it("creates a pull request with a description from stdin", async () => {
+    mockStdin.mockResolvedValueOnce(Buffer.from("# Summary\n\n`code`"));
+    mockRequest.mockResolvedValueOnce({
+      pullRequestId: 42,
+      title: "Title",
+      status: "active",
+      sourceRefName: "refs/heads/feature",
+      targetRefName: "refs/heads/main",
+      repository: { name: "Repo", webUrl: "https://dev.azure.com/test-org/Project/_git/Repo" },
+    });
+
+    await prCommand(["create", "--repo", "Repo", "--source", "feature", "--title", "Title", ...context]);
+
+    expect(mockRequest.mock.calls[0]?.[1]).toMatchObject({ body: { description: "# Summary\n\n`code`" } });
   });
 });

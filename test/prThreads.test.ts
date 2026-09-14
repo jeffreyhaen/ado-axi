@@ -1,16 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/lib/client.js", () => ({ request: vi.fn() }));
+vi.mock("../src/lib/stdin.js", () => ({ readStdinIfPiped: vi.fn(async () => undefined) }));
 
 import { prCommand } from "../src/commands/pr.js";
 import { request } from "../src/lib/client.js";
+import { readStdinIfPiped } from "../src/lib/stdin.js";
 
 const mockRequest = vi.mocked(request);
+const mockStdin = vi.mocked(readStdinIfPiped);
 const context = ["--org", "test-org", "--project", "Project"];
 const pr = { pullRequestId: 812, repository: { name: "Web" } };
 const base = "_apis/git/repositories/Web/pullrequests/812/threads";
 
-beforeEach(() => mockRequest.mockReset());
+beforeEach(() => {
+  mockRequest.mockReset();
+  mockStdin.mockReset();
+  mockStdin.mockResolvedValue(undefined);
+});
 
 describe("pr thread list", () => {
   it("lists non-system threads with an unresolved tally", async () => {
@@ -115,15 +122,33 @@ describe("pr thread reply", () => {
     expect(resolved.help).toBeUndefined();
   });
 
+  it("reads a reply from stdin when --body is omitted", async () => {
+    mockStdin.mockResolvedValueOnce(Buffer.from("line one\n`code`"));
+    mockRequest.mockResolvedValueOnce(pr).mockResolvedValueOnce({ id: 101 });
+
+    await prCommand(["thread", "reply", "812", "--thread", "5", ...context]);
+
+    expect(mockRequest.mock.calls[1]?.[1]).toMatchObject({ body: { content: "line one\n`code`" } });
+  });
+
   it("requires a body", async () => {
-    const original = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
-    Object.defineProperty(process.stdin, "isTTY", { value: true, configurable: true });
-    try {
-      await expect(prCommand(["thread", "reply", "812", "--thread", "5", ...context])).rejects.toThrow(
-        /--body is required/,
-      );
-    } finally {
-      if (original) Object.defineProperty(process.stdin, "isTTY", original);
-    }
+    await expect(prCommand(["thread", "reply", "812", "--thread", "5", ...context])).rejects.toThrow(
+      /--body is required/,
+    );
+  });
+});
+
+describe("pr comment", () => {
+  it("reads a comment from stdin when --body is omitted", async () => {
+    mockStdin.mockResolvedValueOnce(Buffer.from("line one\n`code`"));
+    mockRequest.mockResolvedValueOnce(pr).mockResolvedValueOnce({ id: 102 });
+
+    await prCommand(["comment", "812", ...context]);
+
+    expect(mockRequest.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      path: base,
+      body: { comments: [{ parentCommentId: 0, content: "line one\n`code`", commentType: "text" }], status: "active" },
+    });
   });
 });

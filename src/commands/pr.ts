@@ -390,6 +390,7 @@ async function createPr(args: ReturnType<typeof parseArgs>): Promise<Record<stri
     : undefined;
 
   const workItems = flagList(args, "work-items");
+  const description = flagString(args, "description") ?? (await readStdinIfPiped())?.toString("utf8");
 
   const created = await request<PullRequest>(profile, {
     method: "POST",
@@ -399,7 +400,7 @@ async function createPr(args: ReturnType<typeof parseArgs>): Promise<Record<stri
       sourceRefName: fullRef(source),
       targetRefName: fullRef(target),
       title,
-      description: flagString(args, "description") ?? "",
+      description: description ?? "",
       isDraft: flagBool(args, "draft"),
       reviewers: resolvedReviewers,
       workItemRefs: workItems?.map((id) => ({ id })),
@@ -458,9 +459,7 @@ async function updatePr(args: ReturnType<typeof parseArgs>): Promise<Record<stri
     changed.push("title");
   }
   let description = flagString(args, "description");
-  if (description === undefined && title === undefined && args.flags.draft === undefined && args.flags["auto-complete"] === undefined) {
-    description = (await readStdinIfPiped())?.toString("utf8");
-  }
+  if (description === undefined) description = (await readStdinIfPiped())?.toString("utf8");
   if (description !== undefined && description !== (pr.description ?? "")) {
     requested.description = description;
     changed.push("description");
@@ -864,10 +863,11 @@ async function commentPr(args: ReturnType<typeof parseArgs>): Promise<Record<str
   const profile = profileFromArgs(args);
   const project = requireProject(profile, "pr comment");
   const id = requirePrId(args);
-  const body = flagString(args, "body");
+  const body = flagString(args, "body") ?? (await readStdinIfPiped())?.toString("utf8");
   if (!body) {
     throw new AxiError("--body is required", "VALIDATION_ERROR", [
       `Usage: ado-axi pr comment ${id} --body "..." [--file <path> --line <n>] [--thread <id>]`,
+      "Pipe the comment to stdin when omitting --body",
     ]);
   }
 
@@ -1125,7 +1125,7 @@ async function replyToThread(args: ReturnType<typeof parseArgs>): Promise<Record
   if (!body) {
     throw new AxiError("--body is required", "VALIDATION_ERROR", [
       `Usage: ado-axi pr thread reply ${id} --thread ${threadId} --body "..." [--resolve]`,
-      "A multiline reply may be piped to stdin instead",
+      "Pipe the reply to stdin when omitting --body",
     ]);
   }
   const resolve = flagBool(args, "resolve");

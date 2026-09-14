@@ -132,7 +132,9 @@ cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=paylo
 - **Bounded output.** Lists take `--limit`/`--fields`, detail views truncate with a `--full` escape
   hatch, and `repo file` refuses folders and binaries.
 - **Piped input.** `api` sends piped stdin as the raw request body when `--body` is omitted;
-  `work-item update`, `pr update`, and `pr thread reply` read multiline content the same way.
+  work-item and PR descriptions plus every comment command read stdin when their content flag is omitted.
+  For Markdown or multiline comments, use a quoted heredoc — never `--body "..."` with backticks,
+  `$`, `!`, or quotes. See [safe shell-input guidance](SKILL.md#safe-shell-input).
 - **Markdown comments.** Work item comments use Markdown by default; pass `--format html` only for raw HTML.
 - **Exit codes.** 0 success (including no-ops), 1 runtime error, 2 usage error. `pipeline watch`
   exits non-zero on failed, cancelled, timed-out, and unexpected runs (poll interval and timeout in

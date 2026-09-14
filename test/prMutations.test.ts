@@ -65,6 +65,15 @@ describe("pr update", () => {
     expect(mockRequest.mock.calls[1]?.[1]).toMatchObject({ body: { description: "line one\nline two\n" } });
   });
 
+  it("combines a title update with a description from stdin", async () => {
+    mockStdin.mockResolvedValueOnce(Buffer.from("line one\n`code`"));
+    mockRequest.mockResolvedValueOnce(pr).mockResolvedValueOnce({ ...pr, title: "New", description: "line one\n`code`" });
+
+    await prCommand(["update", "42", "--title", "New", ...context]);
+
+    expect(mockRequest.mock.calls[1]?.[1]).toMatchObject({ body: { title: "New", description: "line one\n`code`" } });
+  });
+
   it("rejects an update with no fields", async () => {
     mockRequest.mockResolvedValueOnce(pr);
     await expect(prCommand(["update", "42", ...context])).rejects.toMatchObject({
