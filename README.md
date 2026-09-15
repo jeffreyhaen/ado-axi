@@ -24,7 +24,7 @@ Across extensive [AXI benchmark studies](https://axi.md/) (over 900 runs), agent
 
 | Interface | Context (Turn 0) | Output | Measured Payload | Write Safety | Guidance |
 |---|---|---|---|---|---|
-| **`ado-axi`** | **~55 tokens** (on-demand) | **TOON** | **-90.8% avg** across PRs, items, runs, branches | ✅ **Dry-run by default**; `--execute` / `--confirm` | Structured hints (`help[]`) |
+| **`ado-axi`** | **~55 tokens** (on-demand) | **TOON** | **-90.8% avg** across PRs, items, runs, branches | ✅ **Immediate writes; idempotent + CAS guards; no policy bypass** | Structured hints (`help[]`) |
 | **Raw CLI** (`az devops`) | ~0 tokens | JSON / ASCII | Baseline (huge REST payloads, slow startup) | ❌ Direct mutations | Human text / exit codes |
 | **Azure DevOps MCP** | ~12k–20k tokens (34–49 schemas) | JSON-RPC | Highest overhead (full schemas resent every turn) | Varies | Schema validation errors |
 
