@@ -1,0 +1,23 @@
+{
+  "profile": "default",
+  "org": "your-org",
+  "project": "YourProject",
+  "repo": "your-repo",
+  "workItemId": 1234,
+  "prId": 42,
+  "failedRunId": 1000,
+  "testRunId": 1001,
+  "filePath": "/README.md",
+  "scrubbed": {
+    "repo": "fabrikam-web",
+    "filePath": "/README.md"
+  },
+  "leakCheck": [
+    "your-org",
+    "YourProject",
+    "your-repo",
+    "YourCompany",
+    "InternalCodeName"
+  ],
+  "_comment": "scrubbed.repo and scrubbed.filePath are published verbatim, so keep them generic. idOffset is generated on first capture and must stay out of version control."
+}

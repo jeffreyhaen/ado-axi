@@ -5,6 +5,18 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+### Documentation & Infrastructure
+
+- Add a reproducible benchmark harness: `pnpm run bench:capture` records and scrubs Azure DevOps
+  traffic locally, `pnpm run bench` replays it offline and regenerates `BENCHMARK.md`
+- Ship the harness, not the data: captured payloads, `benchmark/targets.json` and
+  `benchmark/results.json` stay git-ignored so every operator measures their own organization
+- Scrub fixtures default-deny: only provably safe strings survive, entity ids are shifted by a
+  random offset, and capture refuses to write a fixture that still contains recorded data
+- Add `pnpm run bench:surface` to measure MCP tool schemas against the skill and `--help` surface
+- Replace the unsourced payload claim in `README.md` with measured numbers: -94.5% weighted
+  against raw REST JSON, and 86 always-loaded skill tokens against 16,356 MCP schema tokens
+
 ## [0.4.3] - 2026-09-14
 
 ### Changed

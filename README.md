@@ -20,13 +20,18 @@ contextual next-step hints.
 
 ## Why AXI: CLI vs MCP vs AXI
 
-Across extensive [AXI benchmark studies](https://axi.md/) (over 900 runs), agent-first CLIs achieve **100% task success** at **~50% fewer turns** and **50–66% lower cost** than MCP:
+Across extensive [AXI benchmark studies](https://axi.md/) (over 900 runs), agent-first CLIs achieve **100% task success** at **~50% fewer turns** and **50–66% lower cost** than MCP.
 
-| Interface | Context (Turn 0) | Output | Measured Payload | Write Safety | Guidance |
+This repository ships the harness behind its own measurements: 19 Azure DevOps scenarios, recorded
+against a private organization and replayed offline with the `o200k_base` tokenizer. The recordings
+stay local — see [`BENCHMARK.md`](BENCHMARK.md) for the method and for how to reproduce these
+numbers against your own organization.
+
+| Interface | Context (Turn 0) | Output | Measured payload | Write Safety | Guidance |
 |---|---|---|---|---|---|
-| **`ado-axi`** | **~55 tokens** (on-demand) | **TOON** | **-90.8% avg** across PRs, items, runs, branches | ✅ **Immediate writes; idempotent + CAS guards; no policy bypass** | Structured hints (`help[]`) |
-| **Raw CLI** (`az devops`) | ~0 tokens | JSON / ASCII | Baseline (huge REST payloads, slow startup) | ❌ Direct mutations | Human text / exit codes |
-| **Azure DevOps MCP** | ~12k–20k tokens (34–49 schemas) | JSON-RPC | Highest overhead (full schemas resent every turn) | Varies | Schema validation errors |
+| **`ado-axi`** | **86 tokens** (`SKILL.md` frontmatter; body 3,315 only when the agent opens it) | **TOON** | **-94.5%** vs raw REST JSON (-90.0% mean per scenario) | ✅ **Immediate writes; idempotent + CAS guards; no policy bypass** | Structured hints (`help[]`) |
+| **Raw CLI** (`az devops`) | ~0 tokens | JSON / ASCII | Baseline (full REST payloads, slow startup) | ❌ Direct mutations | Human text / exit codes |
+| **Azure DevOps MCP** | **16,356 tokens** (40 tool schemas, v2.10.0) | JSON-RPC | Highest overhead (full schemas resent every turn) | Varies | Schema validation errors |
 
 ## Install
 

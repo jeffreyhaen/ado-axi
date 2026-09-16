@@ -10,6 +10,12 @@ dist/
 ado-axi.config.json
 ado-axi.config.local.json
 
+# Benchmark capture targets name a real org/project
+benchmark/targets.json
+benchmark/raw/
+benchmark/fixtures/
+benchmark/results.json
+
 # Editor
 .vscode/
 .idea/
