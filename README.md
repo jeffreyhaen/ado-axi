@@ -79,6 +79,8 @@ ado-axi doctor
 }
 ```
 
+- `org` — the Azure DevOps organization name or organization-root URL (`acme` or `https://dev.azure.com/acme`).
+- `project` — the default project inside that organization. Saves passing `--project` on commands requiring project context.
 - `auth: "az"` — uses the Azure CLI (`az account get-access-token`). Add `"tenant": "<id>"`
   when the organization lives in another Entra tenant.
 - `auth: "pat"` — reads a personal access token from the env var named in `patEnv`.
