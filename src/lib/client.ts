@@ -21,6 +21,7 @@ export interface RequestOptions {
   accept?: string;
   /** Return the raw response text instead of parsed JSON (logs, files). */
   raw?: boolean;
+  signal?: AbortSignal;
 }
 
 export function buildUrl(profile: ResolvedProfile, options: RequestOptions): string {
@@ -47,7 +48,11 @@ export async function request<T = unknown>(
   options: RequestOptions,
 ): Promise<T> {
   const url = buildUrl(profile, options);
-  const credential = await resolveCredential(profile);
+  options.signal?.throwIfAborted();
+  const credential = await (options.signal
+    ? resolveCredential(profile, options.signal)
+    : resolveCredential(profile));
+  options.signal?.throwIfAborted();
   const method = (options.method ?? "GET").toUpperCase();
   const headers: Record<string, string> = {
     Authorization: credential.header,
@@ -65,8 +70,9 @@ export async function request<T = unknown>(
 
   let response: Response;
   try {
-    response = await fetch(url, { method, headers, body });
+    response = await fetch(url, { method, headers, body, signal: options.signal });
   } catch (err) {
+    options.signal?.throwIfAborted();
     throw new AxiError(
       `network error contacting Azure DevOps (${profile.org})`,
       "NETWORK_ERROR",
@@ -79,6 +85,7 @@ export async function request<T = unknown>(
   }
 
   const text = await response.text();
+  options.signal?.throwIfAborted();
   if (!response.ok) throw translateError(response, text, profile, url);
   if (/<title>[\s\S]*Azure DevOps Services \| Sign In/i.test(text)) {
     throw translateError(new Response(null, { status: 401 }), text, profile, url);

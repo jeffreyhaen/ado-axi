@@ -15,7 +15,7 @@ Install globally for normal use with `npm install -g @jeffreyhaen/ado-axi`. If `
 ## Orientation
 
 Run `ado-axi` with no arguments first. It prints the active profile plus your open work items,
-active pull requests, and recent pipeline runs — enough to act without a second call.
+project-active pull requests (`active-pull-requests`), and recent pipeline runs.
 
 ```sh
 ado-axi                      # dashboard
@@ -159,8 +159,9 @@ ado-axi pipeline timeline <run-id> [--limit 20] [--full]
 ado-axi pipeline watch <run-id> [--interval 10] [--timeout 1800]
 ```
 
-`watch` uses seconds, refuses intervals below 2 seconds, and always times out (30 minutes by
-default). Failed, cancelled, timed-out, and unexpected outcomes exit non-zero with TOON output.
+`watch` uses seconds, refuses intervals below 2 seconds, and enforces its deadline across
+authentication, HTTP requests, and response bodies (30 minutes by default). Failed, cancelled,
+timed-out, and unexpected outcomes exit non-zero with TOON output.
 
 `logs` returns the tail of the last log by default — pass `--log <id>` for a specific step.
 
@@ -174,9 +175,10 @@ ado-axi test results <run-id> [--outcome failed|passed|aborted|not-executed|all]
 ado-axi test results --run <test-run-id>
 ```
 
-`<run-id>` is the pipeline run id. Totals are aggregated over every test run the pipeline run
-published; failures carry the error message (truncated — `--full` for the whole message). When a
-build is red, `test results` usually answers *what* broke and `pipeline logs --failed-only` *why*.
+`<run-id>` is the pipeline run id. All pages of published test runs contribute to totals;
+result counts match `--outcome`. `--limit` bounds displayed results, not totals. `--full` expands
+error messages without increasing that limit. When a build is red, `test results` usually answers
+*what* broke and `pipeline logs --failed-only` *why*.
 
 ## Repositories
 

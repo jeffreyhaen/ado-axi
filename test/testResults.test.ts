@@ -65,6 +65,61 @@ describe("test results", () => {
     expect(result.help?.[1]).toContain("pipeline logs 98231 --failed-only");
   });
 
+  it("includes failures and totals beyond the first page of published runs", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      id: index + 1, totalTests: 1, passedTests: 1, unanalyzedTests: 0,
+    }));
+    mockRequest
+      .mockResolvedValueOnce({ value: firstPage })
+      .mockResolvedValueOnce({ value: [{ id: 101, totalTests: 2, passedTests: 1, unanalyzedTests: 1 }] })
+      .mockResolvedValueOnce({ value: [{ testCaseTitle: "Last shard fails", outcome: "Failed" }] });
+
+    const result = await testCommand(["results", "98231", ...context]);
+
+    expect(result.tests).toMatchObject({ "test-runs": 101, total: 102, passed: 101, failed: 1 });
+    expect(result.failures).toEqual([expect.objectContaining({ test: "Last shard fails" })]);
+    expect(mockRequest.mock.calls[0]?.[1].query).toMatchObject({ includeRunDetails: true, $skip: 0 });
+    expect(mockRequest.mock.calls[1]?.[1].query).toMatchObject({
+      buildUri: "vstfs:///Build/Build/98231", $skip: 100,
+    });
+    expect(mockRequest.mock.calls[2]?.[1].path).toBe("_apis/test/Runs/101/results");
+  });
+
+  it.each([
+    ["passed", "Passed", "1 of 128 passed tests"],
+    ["all", "Passed", "1 of 130 results"],
+  ])("uses the selected total for --outcome %s even with bounded full output", async (outcome, apiOutcome, count) => {
+    mockRequest.mockResolvedValueOnce(runs).mockResolvedValueOnce({
+      value: [{ testCaseTitle: "A", outcome: apiOutcome }],
+    });
+
+    const result = await testCommand(["results", "98231", "--outcome", outcome, "--limit", "1", "--full", ...context]);
+
+    expect(result.count).toBe(count);
+    expect(mockRequest).toHaveBeenCalledTimes(2);
+    expect(mockRequest.mock.calls[1]?.[1].query).toEqual(
+      outcome === "all" ? { $top: 1 } : { $top: 1, outcomes: "Passed" },
+    );
+  });
+
+  it.each([
+    ["aborted", "Aborted"],
+    ["not-executed", "NotExecuted"],
+  ])("uses outcome statistics rather than failures for %s totals", async (outcome, apiOutcome) => {
+    mockRequest
+      .mockResolvedValueOnce({ id: 501, totalTests: 12, passedTests: 5, unanalyzedTests: 2 })
+      .mockResolvedValueOnce({ runStatistics: [
+        { outcome: "Failed", count: 2 }, { outcome: apiOutcome, count: 5 },
+      ] })
+      .mockResolvedValueOnce({ value: [{ testCaseTitle: "A", outcome: apiOutcome }] });
+
+    const result = await testCommand(["results", "--run", "501", "--outcome", outcome, "--limit", "1", ...context]);
+
+    expect(result.count).toBe(`1 of 5 ${outcome} tests`);
+    expect(mockRequest.mock.calls[1]?.[1].path).toBe("_apis/test/runs/501/Statistics");
+    expect(mockRequest.mock.calls[2]?.[1].query).toEqual({ $top: 1, outcomes: apiOutcome });
+  });
+
   it("reads a single test run and validates --outcome", async () => {
     mockRequest
       .mockResolvedValueOnce({ id: 501, totalTests: 3, passedTests: 2, unanalyzedTests: 1 })

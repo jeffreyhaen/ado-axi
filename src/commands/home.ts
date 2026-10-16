@@ -46,14 +46,14 @@ export async function homeCommand(argv: string[]): Promise<Record<string, unknow
 
   const [workItems, prs, runs] = await Promise.allSettled([
     myWorkItems(profile),
-    myPullRequests(profile),
+    activePullRequests(profile),
     recentRuns(profile),
   ]);
 
   if (workItems.status === "fulfilled") out["my-work-items"] = workItems.value;
   else out["my-work-items"] = describeFailure(workItems.reason);
-  if (prs.status === "fulfilled") out["my-pull-requests"] = prs.value;
-  else out["my-pull-requests"] = describeFailure(prs.reason);
+  if (prs.status === "fulfilled") out["active-pull-requests"] = prs.value;
+  else out["active-pull-requests"] = describeFailure(prs.reason);
   if (runs.status === "fulfilled") out["recent-runs"] = runs.value;
   else out["recent-runs"] = describeFailure(runs.reason);
 
@@ -101,7 +101,7 @@ async function myWorkItems(profile: Profile): Promise<unknown> {
   }));
 }
 
-async function myPullRequests(profile: Profile): Promise<unknown> {
+async function activePullRequests(profile: Profile): Promise<unknown> {
   const project = profile.project as string;
   const result = await request<{ value?: Array<{ pullRequestId: number; title?: string; createdBy?: unknown; repository?: { name?: string }; isDraft?: boolean; creationDate?: string }> }>(
     profile,

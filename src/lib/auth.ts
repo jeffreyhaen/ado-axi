@@ -14,12 +14,14 @@ export interface Credential {
 
 const cache = new Map<string, Credential>();
 
-export async function resolveCredential(profile: ResolvedProfile): Promise<Credential> {
+export async function resolveCredential(profile: ResolvedProfile, signal?: AbortSignal): Promise<Credential> {
+  signal?.throwIfAborted();
   const key = `${profile.auth}:${profile.org}:${profile.patEnv ?? ""}:${profile.tenant ?? ""}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
-  const credential = profile.auth === "pat" ? patCredential(profile) : await azCredential(profile);
+  const credential = profile.auth === "pat" ? patCredential(profile) : await azCredential(profile, signal);
+  signal?.throwIfAborted();
   cache.set(key, credential);
   return credential;
 }
@@ -41,15 +43,16 @@ function patCredential(profile: ResolvedProfile): Credential {
   return { header: `Basic ${Buffer.from(`:${pat}`).toString("base64")}`, mode: "pat" };
 }
 
-async function azCredential(profile: ResolvedProfile): Promise<Credential> {
+async function azCredential(profile: ResolvedProfile, signal?: AbortSignal): Promise<Credential> {
   try {
     const azArgs = ["account", "get-access-token", "--resource", ADO_RESOURCE, "--output", "json"];
     if (profile.tenant) azArgs.push("--tenant", profile.tenant);
-    const stdout = await runAz(azArgs);
+    const stdout = await runAz(azArgs, signal);
     const parsed = JSON.parse(stdout) as { accessToken?: string };
     if (!parsed.accessToken) throw new Error("no accessToken in response");
     return { header: `Bearer ${parsed.accessToken}`, mode: "az" };
   } catch (err) {
+    signal?.throwIfAborted();
     const message = err instanceof Error ? err.message : String(err);
     const notInstalled = /az CLI is not installed/i.test(message);
     const notLoggedIn = !notInstalled && /az login|not logged in|AADSTS|Please run/i.test(message);
@@ -87,8 +90,10 @@ async function azCredential(profile: ResolvedProfile): Promise<Credential> {
  * through as an argv array (not a shell command string), so there's no
  * shell-injection risk from argument values (e.g. `--tenant`).
  */
-function runAz(args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
+function runAz(args: string[], signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted();
+  let onAbort: (() => void) | undefined;
+  return new Promise<string>((resolve, reject) => {
     const child = spawn("az", args, { windowsHide: true });
     let stdout = "";
     let stderr = "";
@@ -117,6 +122,14 @@ function runAz(args: string[]): Promise<string> {
         reject(new Error(stderr.trim() || `az exited with code ${code}`));
       }
     });
+    onAbort = () => {
+      child.kill();
+      reject(signal?.reason);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
+  }).finally(() => {
+    if (onAbort) signal?.removeEventListener("abort", onAbort);
   });
 }
 

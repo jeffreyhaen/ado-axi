@@ -95,7 +95,7 @@ ado-axi doctor
 ## Use
 
 ```sh
-ado-axi                                   # dashboard: your work items, active PRs, recent runs
+ado-axi                                   # dashboard: your work items, active project PRs, recent runs
 ado-axi work-item list --assigned-to @me  # open work items
 ado-axi work-item get 4211 --comments
 ado-axi work-item comment 4211 --body "**Status:** ready"
@@ -143,7 +143,7 @@ cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=paylo
   completed, queued, conflict, policy-blocked, and failed outcomes — run `pr checks` first.
 - **Failure triage in one call.** `pipeline timeline` names the failing stage/job/step with its
   error issue and log id, `pipeline logs --failed-only` opens that log, and `test results`
-  aggregates published test runs into failing tests with their error messages.
+  summarizes test totals and failing tests with their error messages.
 - **Bounded output.** Lists take `--limit`/`--fields`, detail views truncate with a `--full` escape
   hatch, and `repo file` refuses folders and binaries.
 - **ADO REST URLs.** `api` accepts relative paths or full HTTPS REST URLs on `dev.azure.com`,
@@ -158,7 +158,7 @@ cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=paylo
 - **Markdown comments.** Work item comments use Markdown by default; pass `--format html` only for raw HTML.
 - **Exit codes.** 0 success (including no-ops), 1 runtime error, 2 usage error. `pipeline watch`
   exits non-zero on failed, cancelled, timed-out, and unexpected runs (poll interval and timeout in
-  seconds, 10s/1800s by default).
+  seconds, 10s/1800s by default). It stops when the configured timeout is reached.
 
 Every command takes `--help` and answers with a concise reference; that is where per-command
 detail lives, alongside the agent-facing guide in [SKILL.md](SKILL.md).

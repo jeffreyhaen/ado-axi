@@ -6,7 +6,7 @@ import { profileFromArgs } from "../lib/context.js";
 import { countLine, pickFields, truncate } from "../lib/format.js";
 
 const RESULTS_FLAGS = ["run", "outcome", "limit"];
-const MAX_RUNS_SCANNED = 10;
+const RUNS_PAGE_SIZE = 100;
 
 interface TestRun {
   id: number;
@@ -118,6 +118,9 @@ async function testResults(args: ReturnType<typeof parseArgs>): Promise<Record<s
   const project = requireProject(profile, "test results");
   const full = flagBool(args, "full");
   const limit = flagNumber(args, "limit") ?? 20;
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new AxiError("--limit must be a positive integer", "VALIDATION_ERROR");
+  }
   const outcome = normalizeOutcome(args);
   const singleRun = flagNumber(args, "run");
 
@@ -127,12 +130,22 @@ async function testResults(args: ReturnType<typeof parseArgs>): Promise<Record<s
     runs = [await request<TestRun>(profile, { path: `_apis/test/runs/${singleRun}`, project })];
   } else {
     buildId = requireBuildId(args);
-    const response = await request<{ value?: TestRun[] }>(profile, {
-      path: "_apis/test/runs",
-      project,
-      query: { buildUri: `vstfs:///Build/Build/${buildId}`, $top: MAX_RUNS_SCANNED },
-    });
-    runs = response.value ?? [];
+    runs = [];
+    while (true) {
+      const response = await request<{ value?: TestRun[] }>(profile, {
+        path: "_apis/test/runs",
+        project,
+        query: {
+          buildUri: `vstfs:///Build/Build/${buildId}`,
+          includeRunDetails: true,
+          $top: RUNS_PAGE_SIZE,
+          $skip: runs.length,
+        },
+      });
+      const page = response.value ?? [];
+      runs.push(...page);
+      if (page.length < RUNS_PAGE_SIZE) break;
+    }
   }
 
   const scope = buildId !== undefined ? `run ${buildId}` : `test run ${singleRun}`;
@@ -166,13 +179,25 @@ async function testResults(args: ReturnType<typeof parseArgs>): Promise<Record<s
     runs: pickFields(runs.map(runRow), flagList(args, "fields")),
   };
 
-  const interesting =
-    outcome === "all" || outcome !== "Failed" ? runs : runs.filter((r) => failedCount(r) > 0);
+  let matchingTotal = outcome === "all" ? total : outcome === "Passed" ? passed : failed;
+  if (outcome === "Aborted" || outcome === "NotExecuted") {
+    matchingTotal = 0;
+    for (const run of runs) {
+      const statistics = await request<{ runStatistics?: Array<{ outcome?: string; count?: number }> }>(
+        profile,
+        { path: `_apis/test/runs/${run.id}/Statistics`, project },
+      );
+      matchingTotal += (statistics.runStatistics ?? [])
+        .filter((statistic) => statistic.outcome === outcome)
+        .reduce((sum, statistic) => sum + Number(statistic.count ?? 0), 0);
+    }
+  }
+
+  const interesting = outcome === "Failed" ? runs.filter((r) => failedCount(r) > 0) : runs;
   const results: TestResult[] = [];
   for (const run of interesting) {
-    if (results.length >= limit && !full) break;
-    const remaining = full ? limit : Math.max(1, limit - results.length);
-    results.push(...(await fetchResults(profile, project, run.id, outcome, remaining)));
+    if (results.length >= limit) break;
+    results.push(...(await fetchResults(profile, project, run.id, outcome, limit - results.length)));
   }
 
   const label =
@@ -190,7 +215,7 @@ async function testResults(args: ReturnType<typeof parseArgs>): Promise<Record<s
     run: Number(r.testRun?.id ?? 0) || "",
     error: truncate((r.errorMessage ?? "").replace(/\s+/g, " ").trim(), messageLimit).text,
   }));
-  out.count = countLine(shown.length, failed || results.length, label);
+  out.count = countLine(shown.length, matchingTotal, label);
 
   const help: string[] = [];
   if (!full) {

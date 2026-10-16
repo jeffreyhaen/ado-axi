@@ -271,27 +271,29 @@ async function watchPipeline(args: ReturnType<typeof parseArgs>): Promise<Record
   let polls = 0;
   let build: Build | undefined;
 
-  while (Date.now() <= deadline) {
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
+    let delay = interval;
     try {
       build = await request<Build>(profile, {
         path: `_apis/build/builds/${runId}`,
         project,
+        signal: controller.signal,
       });
       polls++;
     } catch (error) {
+      if (controller.signal.aborted) break;
       if (!(error instanceof AxiError) || error.code !== "RATE_LIMITED") throw error;
-      const delay = retryAfterMilliseconds(error, interval);
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) break;
-      await wait(Math.min(delay, remaining));
-      if (delay >= remaining) break;
-      continue;
+      delay = retryAfterMilliseconds(error, interval);
+    } finally {
+      clearTimeout(timer);
     }
-    if ((build.status ?? "").toLowerCase() === "completed") break;
+    if ((build?.status ?? "").toLowerCase() === "completed") break;
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
-    await wait(Math.min(interval, remaining));
-    if (interval >= remaining) break;
+    await wait(Math.min(delay, remaining));
+    if (delay >= remaining) break;
   }
 
   const elapsed = Math.max(0, Math.round((Date.now() - started) / 1000));

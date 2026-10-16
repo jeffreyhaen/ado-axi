@@ -7,6 +7,12 @@ All notable changes to ado-axi are documented here. This project follows
 
 ### Fixed
 
+- Aggregate every page of published test runs with run details; report counts for the selected
+  outcome and keep `--full` within the displayed result limit
+- Enforce the `pipeline watch` deadline during authentication, HTTP requests, and response-body
+  reads; cancel pending requests and Azure CLI authentication without retrying writes
+- Rename the dashboard's project-wide PR section to `active-pull-requests` instead of implying
+  that it contains only the current user's pull requests
 - Reject bare value-taking flags with a usage error instead of silently dropping guards such as
   `--if-rev`/`--old-object-id` or falling back to default context selectors; preserve boolean flags
   and explicit empty strings, and reject empty numeric values

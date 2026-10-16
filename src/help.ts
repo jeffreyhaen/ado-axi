@@ -2,7 +2,7 @@ export const DESCRIPTION =
   "Work with Azure DevOps work items, pull requests, and pipelines from the current profile";
 
 export const TOP_LEVEL_HELP = [
-  "ado-axi                                  # dashboard: your work items, PRs, recent runs",
+  "ado-axi                                  # dashboard: your work items, project-active PRs, recent runs",
   "ado-axi work-item list                   # open work items (WIQL under the hood)",
   "ado-axi work-item get <id>               # detail view [--comments] [--full]",
   'ado-axi work-item create --type Task --title "..."',
@@ -123,7 +123,7 @@ export const COMMAND_HELP: Record<string, string> = {
     "run   --pipeline <id> [--branch <branch>] [--variables '{\"k\":\"v\"}'] [--parameters '{\"k\":\"v\"}']",
     "logs  <run-id> [--log <log-id>] [--tail 120] [--full] [--failed-only]",
     "timeline <run-id> [--limit 20] [--full]  # stage/job outline + failed steps, issues, log ids",
-    "watch <run-id> [--interval 10] [--timeout 1800]  # interval/timeout in seconds; failures exit 1",
+    "watch <run-id> [--interval 10] [--timeout 1800]  # seconds; deadline includes auth/HTTP; failures exit 1",
     "",
     "Examples:",
     "  ado-axi pipeline runs --result failed --limit 5",
@@ -138,7 +138,8 @@ export const COMMAND_HELP: Record<string, string> = {
     "        [--run <test-run-id>]   # read one published test run instead of a pipeline run",
     "",
     "<run-id> is the pipeline run id from `pipeline runs`. Totals are aggregated across every",
-    "test run published by that pipeline run; failures include the error message (truncated).",
+    "test run published by that pipeline run; all pages are read, including run details.",
+    "--limit bounds displayed results, not totals; --full expands error messages, not the result limit.",
     "",
     "Examples:",
     "  ado-axi test results 98231",

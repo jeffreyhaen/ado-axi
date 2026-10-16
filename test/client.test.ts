@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildUrl, request } from "../src/lib/client.js";
+import { clearCredentialCache } from "../src/lib/auth.js";
 import type { ResolvedProfile } from "../src/lib/config.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  clearCredentialCache();
   delete process.env.EXAMPLE_PAT;
 });
 
@@ -15,6 +17,45 @@ const profile: ResolvedProfile = {
   project: "Example Project",
   source: "config",
 };
+
+describe("request cancellation", () => {
+  it("rejects pre-aborted requests before checking credentials or fetching", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(request(profile, { path: "_apis/projects", signal: controller.signal }))
+      .rejects.toBe(controller.signal.reason);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not start a fetch when aborted during credential resolution", async () => {
+    process.env.EXAMPLE_PAT = "secret";
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const controller = new AbortController();
+    const pending = request(profile, { path: "_apis/projects", signal: controller.signal });
+    controller.abort();
+
+    await expect(pending).rejects.toBe(controller.signal.reason);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves ordinary network and authentication errors with a live signal", async () => {
+    process.env.EXAMPLE_PAT = "secret";
+    const controller = new AbortController();
+    const fetch = vi.fn()
+      .mockRejectedValueOnce(new Error("connection reset"))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(request(profile, { path: "_apis/projects", signal: controller.signal }))
+      .rejects.toMatchObject({ code: "NETWORK_ERROR", suggestions: expect.arrayContaining(["connection reset"]) });
+    await expect(request(profile, { path: "_apis/projects", signal: controller.signal }))
+      .rejects.toMatchObject({ code: "AUTH_REQUIRED" });
+  });
+});
 
 describe("buildUrl", () => {
   it("builds an org-level url with the default api-version", () => {
