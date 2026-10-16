@@ -5,6 +5,10 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+### Documentation
+
+- Clarify in the agent skill that ADO text uses `#id` for work items, `!id` for Azure DevOps PRs, and full URLs for GitHub PRs.
+
 ### Fixed
 
 - Aggregate every page of published test runs with run details; report counts for the selected

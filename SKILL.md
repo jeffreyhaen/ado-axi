@@ -227,6 +227,8 @@ require `json-patch`.
 
 ## Conventions
 
+- In ADO descriptions/comments, `#123` references a work item, `!123` an Azure DevOps PR;
+  for GitHub PRs use the full URL, never bare `#123` or `!123`, even when Boards/pipelines run in ADO.
 - Output is TOON on stdout; errors are TOON too, with a `help` list of next steps.
 - Exit codes: 0 success (including no-ops), 1 runtime error, 2 usage error.
 - Unknown flags are rejected by name — read the `help` line and retry once.
