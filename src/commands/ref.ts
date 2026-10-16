@@ -206,9 +206,9 @@ async function deleteRef(args: ReturnType<typeof parseArgs>): Promise<Record<str
   const rawName = flagString(args, "name") ?? args.positionals[0];
   if (!rawName) throw new AxiError("--name <branch> is required", "VALIDATION_ERROR");
   const name = normalizeBranchName(rawName);
+  const expected = flagString(args, "old-object-id");
   const existing = await fetchExactRef(profile, project, repo, name);
   if (!existing?.objectId) return { ref: `${name} is already absent (no-op)` };
-  const expected = flagString(args, "old-object-id");
   if (expected && objectId(expected, "old-object-id") !== existing.objectId.toLowerCase()) {
     throw new AxiError(`${name} changed since the supplied object id; deletion refused`, "PRECONDITION_FAILED", [
       `Current object id: ${existing.objectId}`,

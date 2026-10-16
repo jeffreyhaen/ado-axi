@@ -56,7 +56,7 @@ export const COMMAND_HELP: Record<string, string> = {
     'update  <id> [--state <state>] [--title "..."] [--assigned-to <user>] [--area <path>]',
     '        [--iteration <path>] [--description "..."] [--description-format markdown|html] [--tags "a; b"] [--reason <reason>] [--set \'{...}\']',
     "        # when --description is omitted, piped stdin is used",
-    "        [--add-tags a,b] [--remove-tags c]  # mutate tags without rewriting the whole string",
+    "        [--add-tags a,b] [--remove-tags c]  # automatically revision-guarded tag changes",
     "        [--if-rev <n>]                      # compare-and-swap: fails if the item changed",
     'comment <id> [--body "..."] [--format markdown|html]',
     "        # pipe stdin when --body is omitted; required for Markdown/multiline with `, $, !, or quotes",

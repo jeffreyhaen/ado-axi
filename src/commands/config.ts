@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { assertKnownFlags, flagString, parseArgs } from "../lib/args.js";
+import { assertKnownFlags, flagBool, flagString, parseArgs } from "../lib/args.js";
 import {
   configPath,
   envPatVarFor,
@@ -99,7 +99,7 @@ function initProfile(args: ReturnType<typeof parseArgs>): Record<string, unknown
           `ADO_${org.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_PAT`)
         : undefined,
   };
-  if (!next.defaultProfile || flagString(args, "default") !== undefined) {
+  if (!next.defaultProfile || flagBool(args, "default")) {
     next.defaultProfile = name;
   }
   const written = saveConfig(next, explicit);

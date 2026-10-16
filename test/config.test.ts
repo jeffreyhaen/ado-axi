@@ -125,6 +125,15 @@ describe("resolveProfile", () => {
     expect(JSON.parse(readFileSync(file, "utf8")).profiles["alpha-org"].org).toBe("alpha-org");
   });
 
+  it("selects the requested default profile with a bare boolean flag", async () => {
+    writeConfig({
+      defaultProfile: "alpha",
+      profiles: { alpha: { org: "alpha-org", auth: "az" } },
+    });
+    await configCommand(["init", "--org", "beta-org", "--name", "beta", "--default", "--config", file]);
+    expect(resolveProfile({ config: file })).toMatchObject({ name: "beta", org: "beta-org" });
+  });
+
   it("does not guess a project when an organization URL lacks one", () => {
     writeConfig({ profiles: {} });
     const profile = resolveProfile({ org: "https://dev.azure.com/alpha-org", config: file });

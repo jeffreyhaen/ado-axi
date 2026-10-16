@@ -22,6 +22,31 @@ describe("parseArgs", () => {
   it("rejects non-numeric numbers", () => {
     expect(() => flagNumber(parseArgs(["--limit", "abc"]), "limit")).toThrowError(/expects a number/);
   });
+
+  it.each([
+    ["if-rev", flagNumber],
+    ["old-object-id", flagString],
+    ["org", flagString],
+    ["project", flagString],
+    ["profile", flagString],
+    ["config", flagString],
+    ["add-tags", flagList],
+  ])("rejects --%s without a value instead of treating it as absent", (name, readFlag) => {
+    for (const suffix of [[], ["--full"]]) {
+      expect(() => readFlag(parseArgs([`--${name}`, ...suffix]), name)).toThrowError(
+        expect.objectContaining({ code: "VALIDATION_ERROR", message: expect.stringContaining(`--${name}`) }),
+      );
+    }
+    expect(readFlag(parseArgs([]), name)).toBeUndefined();
+  });
+
+  it("does not interpret an empty numeric value as zero", () => {
+    expect(() => flagNumber(parseArgs(["--if-rev="]), "if-rev")).toThrowError(/expects a number/);
+  });
+
+  it("preserves explicit empty strings for clearing fields", () => {
+    expect(flagString(parseArgs(["--description="]), "description")).toBe("");
+  });
 });
 
 describe("assertKnownFlags", () => {

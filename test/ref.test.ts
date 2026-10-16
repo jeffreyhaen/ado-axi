@@ -72,6 +72,17 @@ describe("ref create", () => {
 });
 
 describe("ref delete", () => {
+  it("rejects a missing object-id value even when the ref is absent", async () => {
+    mockRequest.mockResolvedValue({ value: [] });
+    await expect(refCommand([
+      "delete", "--name", "feature/x", "--old-object-id", ...context,
+    ])).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("--old-object-id"),
+    });
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
   it("deletes with the current old object id guard", async () => {
     mockRequest
       .mockResolvedValueOnce({ value: [{ name: "refs/heads/feature/x", objectId: oid }] })

@@ -542,7 +542,13 @@ async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
     ]);
   }
 
-  if (ifRev !== undefined) ops.unshift({ op: "test", path: "/rev", value: ifRev });
+  const expectedRev = ifRev ?? (tagChange ? current.rev : undefined);
+  if (tagChange && expectedRev === undefined) {
+    throw new AxiError(`#${id} has no revision — tag update refused`, "PRECONDITION_FAILED", [
+      `Run \`ado-axi work-item get ${id}\` to read the current rev, then retry`,
+    ]);
+  }
+  if (expectedRev !== undefined) ops.unshift({ op: "test", path: "/rev", value: expectedRev });
 
   let updated: WorkItem;
   try {
@@ -554,12 +560,12 @@ async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
     });
   } catch (err) {
     if (
-      ifRev !== undefined &&
+      expectedRev !== undefined &&
       err instanceof AxiError &&
       (err.code === "PRECONDITION_FAILED" || /VS403351|Test Operation/i.test(err.message))
     ) {
       throw new AxiError(
-        `#${id} changed during the update — the --if-rev ${ifRev} check failed`,
+        `#${id} changed during the update — the ${ifRev !== undefined ? `--if-rev ${ifRev}` : `automatic revision ${expectedRev}`} check failed`,
         "PRECONDITION_FAILED",
         [
           err.message,
@@ -576,7 +582,7 @@ async function updateWorkItem(args: ReturnType<typeof parseArgs>): Promise<Recor
     title: String(updated.fields?.["System.Title"] ?? ""),
     state: String(updated.fields?.["System.State"] ?? ""),
     assignee: personName(updated.fields?.["System.AssignedTo"]),
-    changed: ifRev === undefined ? ops.length : ops.length - 1,
+    changed: expectedRev === undefined ? ops.length : ops.length - 1,
     skipped: unchanged.join(", "),
   };
   if (tagChange) {

@@ -5,6 +5,15 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject bare value-taking flags with a usage error instead of silently dropping guards such as
+  `--if-rev`/`--old-object-id` or falling back to default context selectors; preserve boolean flags
+  and explicit empty strings, and reject empty numeric values
+- Automatically guard calculated `work-item update --add-tags`/`--remove-tags` patches with the
+  revision read before merging; refuse concurrent changes without retrying or losing another
+  writer's tags, preserve no-ops, and exclude the guard from the reported change count
+
 ## [0.4.5] - 2026-10-06
 
 ### Changed

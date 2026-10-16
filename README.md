@@ -134,7 +134,11 @@ cat payload.bin | ado-axi api POST _apis/wit/attachments --query 'fileName=paylo
   `pr complete`, `pr abandon`, `work-item link add`, and `ref create|delete` report an already
   applied request as a no-op and exit 0.
 - **Compare-and-swap.** `--if-rev <n>` on `work-item update|link add` fails instead of overwriting a
-  concurrently changed item; `ref delete` sends the branch's current object ID as its guard.
+  concurrently changed item. Calculated `--add-tags`/`--remove-tags` changes automatically test the
+  revision read before merging, even without `--if-rev`; conflicts fail without retrying.
+  `ref delete` sends the branch's current object ID as its guard.
+- **Missing flag values fail.** Value-taking flags such as `--if-rev`, `--old-object-id`, and context
+  selectors require a value; a bare flag is a usage error (exit 2), not an omitted guard or selector.
 - **Policy is never bypassed.** `pr complete` sends the current source commit and separates
   completed, queued, conflict, policy-blocked, and failed outcomes — run `pr checks` first.
 - **Failure triage in one call.** `pipeline timeline` names the failing stage/job/step with its

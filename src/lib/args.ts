@@ -38,7 +38,12 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
 
 export function flagString(args: ParsedArgs, name: string): string | undefined {
   const v = args.flags[name];
-  return typeof v === "string" ? v : undefined;
+  if (typeof v === "boolean") {
+    throw new AxiError(`flag --${name} requires a value`, "VALIDATION_ERROR", [
+      `Usage: --${name} <value>`,
+    ]);
+  }
+  return v;
 }
 
 export function flagBool(args: ParsedArgs, name: string): boolean {
@@ -46,10 +51,10 @@ export function flagBool(args: ParsedArgs, name: string): boolean {
 }
 
 export function flagNumber(args: ParsedArgs, name: string): number | undefined {
-  const v = args.flags[name];
-  if (typeof v !== "string") return undefined;
+  const v = flagString(args, name);
+  if (v === undefined) return undefined;
   const n = Number(v);
-  if (!Number.isFinite(n)) {
+  if (v.trim() === "" || !Number.isFinite(n)) {
     throw new AxiError(`flag --${name} expects a number, got '${v}'`, "VALIDATION_ERROR", [
       `Example: --${name} 20`,
     ]);
