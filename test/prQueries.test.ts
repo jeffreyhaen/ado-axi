@@ -60,6 +60,20 @@ describe("pr list", () => {
   });
 });
 
+describe("pr get", () => {
+  it.each([
+    { repo: [], path: "_apis/git/pullrequests/42" },
+    { repo: ["--repo", "Flag Repo"], path: "_apis/git/repositories/Flag%20Repo/pullrequests/42" },
+  ])("includes the selected project when fetching $path", async ({ repo, path }) => {
+    mockRequest.mockResolvedValueOnce({ pullRequestId: 42, title: "Title", status: "active" });
+
+    await prCommand(["get", "42", ...repo, ...context]);
+
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+    expect(mockRequest.mock.calls[0]?.[1]).toEqual({ path, project: "Project" });
+  });
+});
+
 describe("pr URLs", () => {
   it("derives a browsable URL from the repository when retrieving a pull request", async () => {
     mockRequest.mockResolvedValueOnce({

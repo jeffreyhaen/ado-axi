@@ -5,6 +5,10 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Include the selected project in PR lookups without `--repo`, preventing results from other projects.
+
 ## [0.4.6] - 2026-10-16
 
 ### Documentation

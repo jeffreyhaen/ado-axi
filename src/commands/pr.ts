@@ -247,7 +247,7 @@ async function fetchPr(
       project,
     });
   }
-  return request<PullRequest>(profile, { path: `_apis/git/pullrequests/${id}` });
+  return request<PullRequest>(profile, { path: `_apis/git/pullrequests/${id}`, project });
 }
 
 async function getPr(args: ReturnType<typeof parseArgs>): Promise<Record<string, unknown>> {
