@@ -5,6 +5,13 @@ All notable changes to ado-axi are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-10-30
+
+### Fixed
+
+- Reject non-JSON successful responses with `RESPONSE_INVALID`, reporting HTTP status and content
+  type without exposing the body. Explicitly requested text responses and empty successful responses remain supported.
+
 ## [0.4.7] - 2026-10-20
 
 ### Fixed
