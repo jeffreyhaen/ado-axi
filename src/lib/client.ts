@@ -95,7 +95,11 @@ export async function request<T = unknown>(
   try {
     return JSON.parse(text) as T;
   } catch {
-    return text as unknown as T;
+    throw new AxiError(
+      `invalid JSON response from Azure DevOps (HTTP ${response.status}; content-type: ${response.headers.get("content-type") ?? "unknown"})`,
+      "RESPONSE_INVALID",
+      ["Check whether a proxy or gateway is returning a non-JSON response"],
+    );
   }
 }
 

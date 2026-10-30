@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildUrl, request } from "../src/lib/client.js";
+import { buildUrl, request, requestList } from "../src/lib/client.js";
 import { clearCredentialCache } from "../src/lib/auth.js";
 import type { ResolvedProfile } from "../src/lib/config.js";
 
@@ -17,6 +17,51 @@ const profile: ResolvedProfile = {
   project: "Example Project",
   source: "config",
 };
+
+describe("response parsing", () => {
+  it.each([
+    ["<html>private gateway details</html>", "text/html"],
+    ["private proxy details", "text/plain"],
+    ['{"private":', "application/json"],
+  ])("rejects invalid JSON without exposing the body: %s", async (body, contentType) => {
+    process.env.EXAMPLE_PAT = "secret";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, {
+      status: 200,
+      headers: { "content-type": contentType },
+    })));
+
+    await expect(requestList(profile, { path: "_apis/projects" })).rejects.toMatchObject({
+      code: "RESPONSE_INVALID",
+      message: `invalid JSON response from Azure DevOps (HTTP 200; content-type: ${contentType})`,
+      suggestions: ["Check whether a proxy or gateway is returning a non-JSON response"],
+    });
+  });
+
+  it("preserves explicitly requested raw text and empty successful responses", async () => {
+    process.env.EXAMPLE_PAT = "secret";
+    const body = "plain text log";
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(body, { headers: { "content-type": "text/plain" } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 })));
+
+    await expect(request(profile, { path: "_apis/build/builds/1/logs/1", raw: true })).resolves.toBe(body);
+    await expect(request(profile, { path: "_apis/example", method: "DELETE" })).resolves.toBeUndefined();
+  });
+
+  it("keeps sign-in pages as authentication errors, including raw requests", async () => {
+    process.env.EXAMPLE_PAT = "secret";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      "<title>Azure DevOps Services | Sign In</title>",
+      { headers: { "content-type": "text/html" } },
+    )));
+
+    for (const raw of [false, true]) {
+      await expect(request(profile, { path: "_apis/projects", raw })).rejects.toMatchObject({
+        code: "AUTH_REQUIRED",
+      });
+    }
+  });
+});
 
 describe("request cancellation", () => {
   it("rejects pre-aborted requests before checking credentials or fetching", async () => {

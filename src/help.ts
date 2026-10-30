@@ -183,6 +183,7 @@ export const COMMAND_HELP: Record<string, string> = {
     "Conflicting flags or a --profile from another org are rejected before authentication.",
     "URLs with credentials, custom ports, fragments, dot segments, or duplicate query keys are rejected.",
     "Work item writes require --content-type json-patch.",
+    "Use --raw for endpoints that return plain text, such as build logs.",
     "When --body is omitted and stdin is piped, stdin is sent as the raw request body (use --content-type as needed).",
     "",
     "Examples:",

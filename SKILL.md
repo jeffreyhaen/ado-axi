@@ -223,7 +223,7 @@ Conflicting flags or a `--profile` from another org are rejected; do not overrid
 Quote URLs with query parameters. When `--body` is omitted and stdin is piped,
 stdin is sent unchanged as the request body. `--content-type` accepts the shorthands
 `json` (default), `json-patch`, `merge-patch`, `text`, or any media type — work item writes
-require `json-patch`.
+require `json-patch`. Use `--raw` for endpoints that return plain text, such as build logs.
 
 ## Conventions
 
